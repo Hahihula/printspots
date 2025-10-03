@@ -12,3 +12,4 @@ categories = ["utils"]
 [dependencies]
 serde.workspace = true
 # Other dependencies specific to core
+threemf = { git = "https://github.com/Hahihula/3mf-rs.git" }

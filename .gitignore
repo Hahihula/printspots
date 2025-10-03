@@ -85,3 +85,7 @@ coverage/
 book/
 docs/_build/
 target/doc/
+
+# 3d models
+*.3mf
+*.stl
