@@ -1,0 +1,14 @@
+[package]
+name = "printspots-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Core library for Printspots"
+keywords = ["printspots", "3d","3mf","stl","3dprint"]
+categories = ["utils"]
+
+[dependencies]
+serde.workspace = true
+# Other dependencies specific to core

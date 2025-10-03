@@ -1,0 +1,15 @@
+[package]
+name = "printspots-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "printspots"
+path = "src/main.rs"
+
+[dependencies]
+printspots-core.workspace = true
+clap = { version = "4.0", features = ["derive"] }
+anyhow.workspace = true

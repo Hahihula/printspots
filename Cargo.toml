@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "crates/core",
+    "cli",
+    "gui/src-tauri",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["Petr Gadorek <hahihula@gmail.com>"]
+repository = "https://gitlab.com/printspots/printspots"
+
+[workspace.dependencies]
+# Shared dependencies with versions
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+anyhow = "1.0"
+
+# Internal crates
+printspots-core = { path = "crates/core" }
