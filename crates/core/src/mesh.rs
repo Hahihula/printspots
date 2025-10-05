@@ -1,4 +1,13 @@
-use threemf::model::{Triangles, Triangle, Vertices, Vertex};
+use threemf::{model::{Triangle, Triangles, Vertex, Vertices}, Mesh};
+
+#[derive(Debug, Clone)]
+pub struct Rectangle {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
 
 pub fn generate_box(
     vertices: &mut Vertices,
@@ -54,4 +63,30 @@ fn calculate_normal(v0: &Vertex, v1: &Vertex, v2: &Vertex) -> Vertex {
     } else {
         Vertex { x: 0.0, y: 1.0, z: 0.0 }
     }
+}
+
+pub fn export_to_stl(mesh: &Mesh, filename: &str) -> std::io::Result<()> {
+    use std::fs::File;
+    use std::io::Write;
+    
+    let mut file = File::create(filename)?;
+    writeln!(file, "solid object")?;
+    
+    for triangle in &mesh.triangles.triangle {
+        let v0 = &mesh.vertices.vertex[triangle.v1];
+        let v1 = &mesh.vertices.vertex[triangle.v2];
+        let v2 = &mesh.vertices.vertex[triangle.v3];
+        let normal = calculate_normal(v0, v1, v2);
+        
+        writeln!(file, "  facet normal {} {} {}", normal.x, normal.y, normal.z)?;
+        writeln!(file, "    outer loop")?;
+        writeln!(file, "      vertex {} {} {}", v0.x, v0.y, v0.z)?;
+        writeln!(file, "      vertex {} {} {}", v1.x, v1.y, v1.z)?;
+        writeln!(file, "      vertex {} {} {}", v2.x, v2.y, v2.z)?;
+        writeln!(file, "    endloop")?;
+        writeln!(file, "  endfacet")?;
+    }
+    
+    writeln!(file, "endsolid object")?;
+    Ok(())
 }

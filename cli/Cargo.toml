@@ -13,3 +13,11 @@ path = "src/main.rs"
 printspots-core.workspace = true
 clap = { version = "4.0", features = ["derive"] }
 anyhow.workspace = true
+image.workspace = true
+serde.workspace = true
+serde_bytes.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+ron.workspace = true
+dirs.workspace = true
+dialoguer.workspace = true

@@ -1,3 +1,5 @@
+use std::{fs, path::PathBuf};
+
 use serde::{Serialize, Deserialize};
 
 /// Global configuration for the entire printing process
@@ -62,6 +64,60 @@ impl PrintConfig {
     }
 }
 
+/// Get the configuration file path
+pub fn get_config_path() -> Option<PathBuf> {
+    dirs::config_dir().map(|mut path| {
+        path.push("printspots");
+        path.push("config.json");
+        path
+    })
+}
+
+
+/// Load configuration from file, or return default if file doesn't exist
+pub fn load_config() -> PrintConfig {
+    match get_config_path() {
+        Some(path) if path.exists() => {
+            match fs::read_to_string(&path) {
+                Ok(contents) => {
+                    match serde_json::from_str::<PrintConfig>(&contents) {
+                        Ok(config) => {
+                            println!("✓ Loaded configuration from: {}", path.display());
+                            config
+                        }
+                        Err(e) => {
+                            eprintln!("⚠ Error parsing config file: {}. Using defaults.", e);
+                            PrintConfig::default()
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("⚠ Error reading config file: {}. Using defaults.", e);
+                    PrintConfig::default()
+                }
+            }
+        }
+        _ => PrintConfig::default(),
+    }
+}
+
+/// Save configuration to file
+pub fn save_config(config: &PrintConfig) -> Result<(), Box<dyn std::error::Error>> {
+    let path = get_config_path()
+        .ok_or("Could not determine configuration directory")?;
+    
+    // Create directory if it doesn't exist
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    
+    let json = serde_json::to_string_pretty(config)?;
+    fs::write(&path, json)?;
+    
+    println!("✓ Configuration saved to: {}", path.display());
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub struct PrintingConstraints {
     pub min_feature_size_mm: f32,
@@ -72,7 +128,7 @@ pub struct PrintingConstraints {
 impl Default for PrintingConstraints {
     fn default() -> Self {
         Self {
-            min_feature_size_mm: 0.5,
+            min_feature_size_mm: 0.8,
             merge_small_features: true,
             erosion_dilation_passes: 1,
         }
