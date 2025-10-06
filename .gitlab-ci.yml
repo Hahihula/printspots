@@ -71,107 +71,107 @@ build:linux:gui:
     - main
     - tags
 
-#############################################
-# macOS Builds (Self-hosted Runner)
-#############################################
+# #############################################
+# # macOS Builds (Self-hosted Runner)
+# #############################################
 
-build:macos:cli:
-  stage: build_alternative_platforms
-  tags:
-    - macos
-  <<: *cache_config
-  script:
-    - rustc --version && cargo --version
-    - cargo build --release --package printspots-cli
-    - mkdir -p artifacts/macos
-    - cp target/release/printspots artifacts/macos/printspots-cli-macos-$(uname -m)
-  artifacts:
-    paths:
-      - artifacts/macos/
-    expire_in: 1 week
-  only:
-    - main
-    - tags
-  allow_failure: true
+# build:macos:cli:
+#   stage: build_alternative_platforms
+#   tags:
+#     - macos
+#   <<: *cache_config
+#   script:
+#     - rustc --version && cargo --version
+#     - cargo build --release --package printspots-cli
+#     - mkdir -p artifacts/macos
+#     - cp target/release/printspots artifacts/macos/printspots-cli-macos-$(uname -m)
+#   artifacts:
+#     paths:
+#       - artifacts/macos/
+#     expire_in: 1 week
+#   only:
+#     - main
+#     - tags
+#   allow_failure: true
 
-build:macos:gui:
-  stage: build_alternative_platforms
-  tags:
-    - macos
-  <<: *cache_config
-  before_script:
-    # Ensure yarn is available
-    - command -v yarn || npm install -g yarn
-  script:
-    - rustc --version && cargo --version
-    - node --version && yarn --version
-    - cd gui
-    - yarn install
-    - yarn tauri build
-    - cd ..
-    - mkdir -p artifacts/macos
-    - cp -r gui/src-tauri/target/release/bundle/dmg/*.dmg artifacts/macos/ || true
-    - cp -r gui/src-tauri/target/release/bundle/macos/*.app artifacts/macos/ || true
-  artifacts:
-    paths:
-      - artifacts/macos/
-    expire_in: 1 week
-  only:
-    - main
-    - tags
-  allow_failure: true
+# build:macos:gui:
+#   stage: build_alternative_platforms
+#   tags:
+#     - macos
+#   <<: *cache_config
+#   before_script:
+#     # Ensure yarn is available
+#     - command -v yarn || npm install -g yarn
+#   script:
+#     - rustc --version && cargo --version
+#     - node --version && yarn --version
+#     - cd gui
+#     - yarn install
+#     - yarn tauri build
+#     - cd ..
+#     - mkdir -p artifacts/macos
+#     - cp -r gui/src-tauri/target/release/bundle/dmg/*.dmg artifacts/macos/ || true
+#     - cp -r gui/src-tauri/target/release/bundle/macos/*.app artifacts/macos/ || true
+#   artifacts:
+#     paths:
+#       - artifacts/macos/
+#     expire_in: 1 week
+#   only:
+#     - main
+#     - tags
+#   allow_failure: true
 
-#############################################
-# Windows Builds (Self-hosted Runner)
-#############################################
+# #############################################
+# # Windows Builds (Self-hosted Runner)
+# #############################################
 
-build:windows:cli:
-  stage: build_alternative_platforms
-  tags:
-    - windows
-  <<: *cache_config
-  script:
-    - rustc --version
-    - cargo --version
-    - cargo build --release --package printspots-cli
-    - mkdir -p artifacts/windows
-    - cp target/release/printspots.exe artifacts/windows/printspots-cli-windows-x86_64.exe
-  artifacts:
-    paths:
-      - artifacts/windows/
-    expire_in: 1 week
-  only:
-    - main
-    - tags
-  allow_failure: true
+# build:windows:cli:
+#   stage: build_alternative_platforms
+#   tags:
+#     - windows
+#   <<: *cache_config
+#   script:
+#     - rustc --version
+#     - cargo --version
+#     - cargo build --release --package printspots-cli
+#     - mkdir -p artifacts/windows
+#     - cp target/release/printspots.exe artifacts/windows/printspots-cli-windows-x86_64.exe
+#   artifacts:
+#     paths:
+#       - artifacts/windows/
+#     expire_in: 1 week
+#   only:
+#     - main
+#     - tags
+#   allow_failure: true
 
-build:windows:gui:
-  stage: build_alternative_platforms
-  tags:
-    - windows
-  <<: *cache_config
-  before_script:
-    - node --version
-    - yarn --version
-  script:
-    - rustc --version
-    - cargo --version
-    - cd gui
-    - yarn install
-    - yarn tauri build
-    - cd ..
-    - mkdir -p artifacts/windows
-    - cp gui/src-tauri/target/release/bundle/msi/*.msi artifacts/windows/ 2>$null || echo "No MSI found"
-    - cp gui/src-tauri/target/release/bundle/nsis/*.exe artifacts/windows/ 2>$null || echo "No NSIS installer found"
-    - cp gui/src-tauri/target/release/printspots.exe artifacts/windows/printspots-gui-windows-x86_64.exe 2>$null || echo "No binary found"
-  artifacts:
-    paths:
-      - artifacts/windows/
-    expire_in: 1 week
-  only:
-    - main
-    - tags
-  allow_failure: true
+# build:windows:gui:
+#   stage: build_alternative_platforms
+#   tags:
+#     - windows
+#   <<: *cache_config
+#   before_script:
+#     - node --version
+#     - yarn --version
+#   script:
+#     - rustc --version
+#     - cargo --version
+#     - cd gui
+#     - yarn install
+#     - yarn tauri build
+#     - cd ..
+#     - mkdir -p artifacts/windows
+#     - cp gui/src-tauri/target/release/bundle/msi/*.msi artifacts/windows/ 2>$null || echo "No MSI found"
+#     - cp gui/src-tauri/target/release/bundle/nsis/*.exe artifacts/windows/ 2>$null || echo "No NSIS installer found"
+#     - cp gui/src-tauri/target/release/printspots.exe artifacts/windows/printspots-gui-windows-x86_64.exe 2>$null || echo "No binary found"
+#   artifacts:
+#     paths:
+#       - artifacts/windows/
+#     expire_in: 1 week
+#   only:
+#     - main
+#     - tags
+#   allow_failure: true
 
 #############################################
 # Release Jobs (On Tags)
@@ -210,17 +210,6 @@ release:gitlab:
           url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/linux/*.AppImage?job=build:linux:gui'
         - name: 'Linux GUI DEB'
           url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/linux/*.deb?job=build:linux:gui'
-        # # macOS artifacts
-        # - name: 'macOS CLI (Universal)'
-        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/macos/printspots-cli-macos-*?job=build:macos:cli'
-        # - name: 'macOS GUI DMG'
-        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/macos/*.dmg?job=build:macos:gui'
-        # # Windows artifacts
-        # - name: 'Windows CLI (x86_64)'
-        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/printspots-cli-windows-x86_64.exe?job=build:windows:cli'
-        # - name: 'Windows GUI MSI Installer'
-        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/*.msi?job=build:windows:gui'
-        # - name: 'Windows GUI NSIS Installer'
         #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/*.exe?job=build:windows:gui'
   only:
     - tags
