@@ -1,7 +1,9 @@
 stages:
   - build
-  - release
+  - release-crate
   - mirror
+  - build_alternative_platforms
+  - release
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
@@ -74,7 +76,7 @@ build:linux:gui:
 #############################################
 
 build:macos:cli:
-  stage: build
+  stage: build_alternative_platforms
   tags:
     - macos
   <<: *cache_config
@@ -93,7 +95,7 @@ build:macos:cli:
   allow_failure: true
 
 build:macos:gui:
-  stage: build
+  stage: build_alternative_platforms
   tags:
     - macos
   <<: *cache_config
@@ -124,7 +126,7 @@ build:macos:gui:
 #############################################
 
 build:windows:cli:
-  stage: build
+  stage: build_alternative_platforms
   tags:
     - windows
   <<: *cache_config
@@ -144,7 +146,7 @@ build:windows:cli:
   allow_failure: true
 
 build:windows:gui:
-  stage: build
+  stage: build_alternative_platforms
   tags:
     - windows
   <<: *cache_config
@@ -176,7 +178,7 @@ build:windows:gui:
 #############################################
 
 release:crates-io:
-  stage: release
+  stage: release-crate
   image: rust:latest
   script:
     - cargo login $CRATES_IO_TOKEN
@@ -193,10 +195,6 @@ release:gitlab:
   dependencies:
     - build:linux:cli
     - build:linux:gui
-    - build:macos:cli
-    - build:macos:gui
-    - build:windows:cli
-    - build:windows:gui
   script:
     - echo "Creating GitLab release for $CI_COMMIT_TAG"
   release:
@@ -212,18 +210,18 @@ release:gitlab:
           url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/linux/*.AppImage?job=build:linux:gui'
         - name: 'Linux GUI DEB'
           url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/linux/*.deb?job=build:linux:gui'
-        # macOS artifacts
-        - name: 'macOS CLI (Universal)'
-          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/macos/printspots-cli-macos-*?job=build:macos:cli'
-        - name: 'macOS GUI DMG'
-          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/macos/*.dmg?job=build:macos:gui'
-        # Windows artifacts
-        - name: 'Windows CLI (x86_64)'
-          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/printspots-cli-windows-x86_64.exe?job=build:windows:cli'
-        - name: 'Windows GUI MSI Installer'
-          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/*.msi?job=build:windows:gui'
-        - name: 'Windows GUI NSIS Installer'
-          url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/*.exe?job=build:windows:gui'
+        # # macOS artifacts
+        # - name: 'macOS CLI (Universal)'
+        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/macos/printspots-cli-macos-*?job=build:macos:cli'
+        # - name: 'macOS GUI DMG'
+        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/macos/*.dmg?job=build:macos:gui'
+        # # Windows artifacts
+        # - name: 'Windows CLI (x86_64)'
+        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/printspots-cli-windows-x86_64.exe?job=build:windows:cli'
+        # - name: 'Windows GUI MSI Installer'
+        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/*.msi?job=build:windows:gui'
+        # - name: 'Windows GUI NSIS Installer'
+        #   url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/*.exe?job=build:windows:gui'
   only:
     - tags
 
