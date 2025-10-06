@@ -1,6 +1,7 @@
 stages:
   - build
   - release
+  - mirror
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
@@ -224,4 +225,34 @@ release:gitlab:
         - name: 'Windows GUI NSIS Installer'
           url: '${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/artifacts/windows/*.exe?job=build:windows:gui'
   only:
+    - tags
+
+#############################################
+# GitHub Mirror Job
+#############################################
+
+mirror:github:
+  stage: mirror
+  image: alpine/git:latest
+  script:
+    - git config --global user.name "GitLab CI"
+    - git config --global user.email "ci@gitlab.com"
+    - git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git"
+    - git fetch --all
+    - git checkout $CI_COMMIT_REF_NAME
+    - mv README.md README.md.original || true
+    - |
+      echo "# Mirror Notice" > README.md
+      echo "" >> README.md
+      echo "This repository is a mirror of the primary repository hosted on GitLab: [${CI_PROJECT_URL}](${CI_PROJECT_URL})." >> README.md
+      echo "All development and contributions happen on the GitLab repository. Please submit issues and pull requests there." >> README.md
+      echo "" >> README.md
+      echo "## Original README" >> README.md
+      echo "" >> README.md
+      cat README.md.original >> README.md || echo "No original README found, continuing..."
+    - git add README.md
+    - git commit -m "Update README for GitHub mirror [skip ci]" || echo "No changes to commit"
+    - git push github $CI_COMMIT_REF_NAME --force
+  only:
+    - main
     - tags
