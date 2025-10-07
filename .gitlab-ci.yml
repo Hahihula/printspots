@@ -232,7 +232,16 @@ mirror:github:
     - git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git" || true
     - git fetch --all
     - git checkout -B $CI_COMMIT_REF_NAME
-    - '[ -f README.md ] && cp README.md README.md.original || true'
+    - ls -la
+    - |
+      if [ -f README.md ]; then
+        echo "README.md exists, copying..."
+        cp README.md README.md.original
+        echo "Copy done, checking..."
+        ls -la README.md*
+      else
+        echo "README.md does not exist"
+      fi
     - echo "# Mirror Notice" > README.md
     - echo "" >> README.md
     - 'echo "This repository is a mirror of the primary repository hosted on GitLab: [${CI_PROJECT_URL}](${CI_PROJECT_URL})." >> README.md'
@@ -240,7 +249,13 @@ mirror:github:
     - echo "" >> README.md
     - echo "## Original README" >> README.md
     - echo "" >> README.md
-    - '[ -f README.md.original ] && cat README.md.original >> README.md || echo "No original README found"'
+    - |
+      if [ -f README.md.original ]; then
+        echo "Appending original README..."
+        cat README.md.original >> README.md
+      else
+        echo "No original README found"
+      fi
     - git add README.md
     - git commit -m "Update README for GitHub mirror [skip ci]" || true
     - git push github $CI_COMMIT_REF_NAME --force

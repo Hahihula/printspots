@@ -45,9 +45,10 @@ jobs:
           yarn tauri build
           cd ..
           mkdir -p artifacts/windows
-          copy gui\src-tauri\target\release\bundle\msi\*.msi artifacts\windows\ || echo "No MSI found"
-          copy gui\src-tauri\target\release\bundle\nsis\*.exe artifacts\windows\ || echo "No NSIS installer found"
-          copy gui\src-tauri\target\release\printspots.exe artifacts\windows\printspots-gui-windows-x86_64.exe || echo "No binary found"
+          # Tauri outputs to root target/ folder, not gui/src-tauri/target/
+          copy target\release\bundle\msi\*.msi artifacts\windows\ || echo "No MSI found"
+          copy target\release\bundle\nsis\*.exe artifacts\windows\ || echo "No NSIS installer found"
+          copy target\release\printspots.exe artifacts\windows\printspots-gui-windows-x86_64.exe || echo "No binary found"
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -90,8 +91,8 @@ jobs:
           yarn tauri build
           cd ..
           mkdir -p artifacts/macos
-          cp -r gui/src-tauri/target/release/bundle/dmg/*.dmg artifacts/macos/ || true
-          cp -r gui/src-tauri/target/release/bundle/macos/*.app artifacts/macos/ || true
+          cp -r target/release/bundle/dmg/*.dmg artifacts/macos/ || true
+          cp -r target/release/bundle/macos/*.app artifacts/macos/ || true
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
