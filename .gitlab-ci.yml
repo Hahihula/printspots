@@ -221,26 +221,29 @@ release:gitlab:
 mirror:github:
   stage: mirror
   image: alpine/git:latest
-  before_script:
-    - apk add --no-cache bash
+  variables:
+    GIT_STRATEGY: clone
+    GIT_DEPTH: 0
   script:
     - git config --global user.name "GitLab CI"
     - git config --global user.email "ci@gitlab.com"
-    - git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git"
+    - git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git" || true
     - git fetch --all
-    - git checkout $CI_COMMIT_REF_NAME
+    - git checkout -B $CI_COMMIT_REF_NAME
     - mv README.md README.md.original || true
     - |
-      echo "# Mirror Notice" > README.md
-      echo "" >> README.md
-      echo "This repository is a mirror of the primary repository hosted on GitLab: [${CI_PROJECT_URL}](${CI_PROJECT_URL})." >> README.md
-      echo "All development and contributions happen on the GitLab repository. Please submit issues and pull requests there." >> README.md
-      echo "" >> README.md
-      echo "## Original README" >> README.md
-      echo "" >> README.md
-      cat README.md.original >> README.md || echo "No original README found, continuing..."
+      cat > README.md << 'EOF'
+      # Mirror Notice
+
+      This repository is a mirror of the primary repository hosted on GitLab: [${CI_PROJECT_URL}](${CI_PROJECT_URL}).
+      All development and contributions happen on the GitLab repository. Please submit issues and pull requests there.
+
+      ## Original README
+
+      EOF
+    - cat README.md.original >> README.md 2>/dev/null || true
     - git add README.md
-    - git commit -m "Update README for GitHub mirror [skip ci]" || echo "No changes to commit"
+    - git commit -m "Update README for GitHub mirror [skip ci]" || true
     - git push github $CI_COMMIT_REF_NAME --force
   only:
     - main
