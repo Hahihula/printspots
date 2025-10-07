@@ -234,13 +234,13 @@ mirror:github:
     - git checkout -B $CI_COMMIT_REF_NAME
     - ls -la
     - |
-      if [ -f README.md ]; then
-        echo "README.md exists, copying..."
-        cp README.md README.md.original
+      if [ -f Readme.md ]; then
+        echo "Readme.md exists, copying..."
+        cp Readme.md README.md.original
         echo "Copy done, checking..."
-        ls -la README.md*
+        ls -la Readme.md*
       else
-        echo "README.md does not exist"
+        echo "Readme.md does not exist"
       fi
     - echo "# Mirror Notice" > README.md
     - echo "" >> README.md
