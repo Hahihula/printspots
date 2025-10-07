@@ -47,7 +47,7 @@ build:linux:gui:
   before_script:
     # Install system dependencies for Tauri
     - apt-get update
-    - apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+    - apt-get install -y xdg-utils libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
     # Install Node.js
     - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     - apt-get install -y nodejs
