@@ -20,7 +20,7 @@ pub enum Commands {
         size: u32,
         
         /// Should the calibration pattern have flat top
-        #[arg(long)]
+        #[arg(long, default_value_t = false)]
         flat_top: bool,
 
         /// Optional output filename, defaults to calibration.3mf
