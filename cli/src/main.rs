@@ -6,6 +6,7 @@ use image::{ImageReader, RgbImage, Rgb};
 use clap::Parser;
 use cli::{Cli, Commands};
 use printspots_core::grayscale::generate::generate_image;
+use printspots_core::mesh::export_to_stl;
 use printspots_core::{config::load_config, grayscale::calibration::generate_calibration_objects, grayscale::image_processing::dither_to_palette};
 use printspots_core::config::{save_config, PrintConfig, PrintingConstraints};
 use dialoguer::{theme::ColorfulTheme, Input, Confirm};
@@ -62,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             println!("Generating 3D printable objects...");
 
-            let image_objects = generate_image(&printable, &palette, &config, false);
+            let image_objects = generate_image(&printable, &palette, &config, flat_top);
             // Export results
             match export_to_3mf(&image_objects, output.to_str().unwrap()) {
                 Ok(_) => {
