@@ -6,6 +6,7 @@ use image::{ImageReader, RgbImage, Rgb};
 use clap::Parser;
 use cli::{Cli, Commands};
 use printspots_core::grayscale::generate::generate_image;
+use printspots_core::mesh::add_build_plate_padding;
 use printspots_core::{config::load_config, grayscale::calibration::generate_calibration_objects, grayscale::image_processing::dither_to_palette};
 use printspots_core::config::{save_config, PrintConfig, PrintingConstraints};
 use dialoguer::{theme::ColorfulTheme, Input, Confirm};
@@ -37,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        Some(Commands::Generate { input, size, flat_top, stl, palette, output }) => {
+        Some(Commands::Generate { input, size, flat_top, stl, add_pads, palette, output }) => {
             if flat_top {
                 println!("⚠ Warning: Flat top option is not yet implemented and will be ignored.");
             }
@@ -62,7 +63,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             println!("Generating 3D printable objects...");
 
-            let image_objects = generate_image(&printable, &palette, &config, flat_top);
+            let mut image_objects = generate_image(&printable, &palette, &config, flat_top);
+
+            if (add_pads) {
+                println!("Adding build plate padding to objects...");
+                add_build_plate_padding(&mut image_objects.black_mesh, 3.0); // this is unnecesary
+                add_build_plate_padding(&mut image_objects.white_mesh, 5.0);
+            }
+
             // Export results
             match export_to_3mf(&image_objects, output.to_str().unwrap()) {
                 Ok(_) => {

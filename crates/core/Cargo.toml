@@ -18,4 +18,4 @@ ron.workspace = true
 toml.workspace = true
 dirs.workspace = true
 # Other dependencies specific to core
-threemf = { git = "https://github.com/Hahihula/3mf-rs.git" }
+threemf = { git = "https://github.com/Hahihula/3mf-rs.git", branch="implementations" }

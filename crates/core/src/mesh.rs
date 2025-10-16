@@ -90,3 +90,36 @@ pub fn calculate_normal(v0: &Vertex, v1: &Vertex, v2: &Vertex) -> Vertex {
 //     writeln!(file, "endsolid object")?;
 //     Ok(())
 // }
+
+pub fn calculate_xy_bounds(vertices: &Vertices) -> (f32, f32, f32, f32) {
+    if vertices.vertex.is_empty() {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+    
+    let first_vertex = &vertices.vertex[0];
+    let mut min_x = first_vertex.x as f32;
+    let mut max_x = first_vertex.x as f32;
+    let mut min_y = first_vertex.y as f32;
+    let mut max_y = first_vertex.y as f32;
+    
+    for vertex in &vertices.vertex {
+        let x = vertex.x as f32;
+        let y = vertex.y as f32;
+        
+        min_x = min_x.min(x);
+        max_x = max_x.max(x);
+        min_y = min_y.min(y);
+        max_y = max_y.max(y);
+    }
+    
+    (min_x, max_x, min_y, max_y)
+}
+
+pub fn add_build_plate_padding(mesh: &mut Mesh, margin: f32) {
+        generate_box(
+            &mut mesh.vertices,
+            &mut mesh.triangles,
+            -margin, -margin, 0.0,
+            1.0, 1.0, 0.2,
+        );
+}
