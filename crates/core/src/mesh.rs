@@ -47,7 +47,7 @@ fn add_quad_triangles(triangles: &mut Triangles, base: usize, v0: usize, v1: usi
     triangles.triangle.push(Triangle { v1: base + v0, v2: base + v2, v3: base + v3 });
 }
 
-fn calculate_normal(v0: &Vertex, v1: &Vertex, v2: &Vertex) -> Vertex {
+pub fn calculate_normal(v0: &Vertex, v1: &Vertex, v2: &Vertex) -> Vertex {
     let edge1 = Vertex { x: v1.x - v0.x, y: v1.y - v0.y, z: v1.z - v0.z };
     let edge2 = Vertex { x: v2.x - v0.x, y: v2.y - v0.y, z: v2.z - v0.z };
     
@@ -65,28 +65,28 @@ fn calculate_normal(v0: &Vertex, v1: &Vertex, v2: &Vertex) -> Vertex {
     }
 }
 
-pub fn export_to_stl(mesh: &Mesh, filename: &str) -> std::io::Result<()> {
-    use std::fs::File;
-    use std::io::Write;
+// pub fn export_to_stl(mesh: &Mesh, filename: &str) -> std::io::Result<()> {
+//     use std::fs::File;
+//     use std::io::Write;
     
-    let mut file = File::create(filename)?;
-    writeln!(file, "solid object")?;
+//     let mut file = File::create(filename)?;
+//     writeln!(file, "solid object")?;
     
-    for triangle in &mesh.triangles.triangle {
-        let v0 = &mesh.vertices.vertex[triangle.v1];
-        let v1 = &mesh.vertices.vertex[triangle.v2];
-        let v2 = &mesh.vertices.vertex[triangle.v3];
-        let normal = calculate_normal(v0, v1, v2);
+//     for triangle in &mesh.triangles.triangle {
+//         let v0 = &mesh.vertices.vertex[triangle.v1];
+//         let v1 = &mesh.vertices.vertex[triangle.v2];
+//         let v2 = &mesh.vertices.vertex[triangle.v3];
+//         let normal = calculate_normal(v0, v1, v2);
         
-        writeln!(file, "  facet normal {} {} {}", normal.x, normal.y, normal.z)?;
-        writeln!(file, "    outer loop")?;
-        writeln!(file, "      vertex {} {} {}", v0.x, v0.y, v0.z)?;
-        writeln!(file, "      vertex {} {} {}", v1.x, v1.y, v1.z)?;
-        writeln!(file, "      vertex {} {} {}", v2.x, v2.y, v2.z)?;
-        writeln!(file, "    endloop")?;
-        writeln!(file, "  endfacet")?;
-    }
+//         writeln!(file, "  facet normal {} {} {}", normal.x, normal.y, normal.z)?;
+//         writeln!(file, "    outer loop")?;
+//         writeln!(file, "      vertex {} {} {}", v0.x, v0.y, v0.z)?;
+//         writeln!(file, "      vertex {} {} {}", v1.x, v1.y, v1.z)?;
+//         writeln!(file, "      vertex {} {} {}", v2.x, v2.y, v2.z)?;
+//         writeln!(file, "    endloop")?;
+//         writeln!(file, "  endfacet")?;
+//     }
     
-    writeln!(file, "endsolid object")?;
-    Ok(())
-}
+//     writeln!(file, "endsolid object")?;
+//     Ok(())
+// }

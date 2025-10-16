@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use threemf::model::{Base, BaseMaterials, Item, Model, Object};
 
 
-use crate::{config::{PrintConfig, PrintingConstraints}, utils::PrintObjects};
+use crate::{config::{PrintConfig, PrintingConstraints}, mesh::calculate_normal, utils::PrintObjects};
 
 pub mod calibration;
 pub mod image_processing;
@@ -106,6 +106,48 @@ impl ColorPalette {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("Failed to deserialize ColorPalette from TOML: {}", e)))?;
         Ok(palette)
     }
+}
+
+pub fn export_to_stl(objects: &PrintObjects, filename_black: &str, filename_white: &str) -> io::Result<()> {
+    let mut file = File::create(filename_black)?;
+    writeln!(file, "solid object")?;
+    
+    for triangle in &objects.black_mesh.triangles.triangle {
+        let v0 = &objects.black_mesh.vertices.vertex[triangle.v1];
+        let v1 = &objects.black_mesh.vertices.vertex[triangle.v2];
+        let v2 = &objects.black_mesh.vertices.vertex[triangle.v3];
+        let normal = calculate_normal(v0, v1, v2);
+        
+        writeln!(file, "  facet normal {} {} {}", normal.x, normal.y, normal.z)?;
+        writeln!(file, "    outer loop")?;
+        writeln!(file, "      vertex {} {} {}", v0.x, v0.y, v0.z)?;
+        writeln!(file, "      vertex {} {} {}", v1.x, v1.y, v1.z)?;
+        writeln!(file, "      vertex {} {} {}", v2.x, v2.y, v2.z)?;
+        writeln!(file, "    endloop")?;
+        writeln!(file, "  endfacet")?;
+    }
+    writeln!(file, "endsolid object")?;
+
+    let mut filew = File::create(filename_white)?;
+    writeln!(filew, "solid object")?;
+    
+    for triangle in &objects.white_mesh.triangles.triangle {
+        let v0 = &objects.white_mesh.vertices.vertex[triangle.v1];
+        let v1 = &objects.white_mesh.vertices.vertex[triangle.v2];
+        let v2 = &objects.white_mesh.vertices.vertex[triangle.v3];
+        let normal = calculate_normal(v0, v1, v2);
+        
+        writeln!(filew, "  facet normal {} {} {}", normal.x, normal.y, normal.z)?;
+        writeln!(filew, "    outer loop")?;
+        writeln!(filew, "      vertex {} {} {}", v0.x, v0.y, v0.z)?;
+        writeln!(filew, "      vertex {} {} {}", v1.x, v1.y, v1.z)?;
+        writeln!(filew, "      vertex {} {} {}", v2.x, v2.y, v2.z)?;
+        writeln!(filew, "    endloop")?;
+        writeln!(filew, "  endfacet")?;
+    }
+    
+    writeln!(filew, "endsolid object")?;
+    Ok(())
 }
 
 

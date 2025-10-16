@@ -42,6 +42,10 @@ pub enum Commands {
         #[arg(long)]
         flat_top: bool,
 
+        /// Also export individual STL files for black and white meshes
+        #[arg(long, default_value_t = false)]
+        stl: bool,
+
         /// Path to the palette file
         #[arg(short, long)]
         palette: PathBuf,
