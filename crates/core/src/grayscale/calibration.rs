@@ -1,5 +1,7 @@
+use threemf::Mesh;
+
 use crate::config::PrintConfig;
-use crate::utils::{PrintObjects, Mesh};
+use crate::utils::{PrintObjects};
 use crate::mesh::generate_box;
 
 pub fn generate_calibration_objects(config: &PrintConfig, square_size: f32, flat_top: bool) -> PrintObjects {

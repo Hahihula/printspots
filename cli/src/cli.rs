@@ -42,6 +42,14 @@ pub enum Commands {
         #[arg(long)]
         flat_top: bool,
 
+        /// Also export individual STL files for black and white meshes
+        #[arg(long, default_value_t = false)]
+        stl: bool,
+
+        /// Add small pad on the build plate to every color object so the slicer let it float in the air
+        #[arg(long, default_value_t = false)]
+        add_pads: bool,
+
         /// Path to the palette file
         #[arg(short, long)]
         palette: PathBuf,

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use image::RgbImage;
-use threemf::model::Triangle;
+use threemf::{model::Triangle, Mesh};
 
-use crate::{config::PrintConfig, grayscale::ColorPalette, mesh::{generate_box, Rectangle}, utils::{Mesh, PrintObjects}};
+use crate::{config::PrintConfig, grayscale::ColorPalette, mesh::{generate_box, Rectangle}, utils::{ PrintObjects}};
 
 pub fn generate_image(
     image: &RgbImage,
