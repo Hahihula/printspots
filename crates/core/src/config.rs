@@ -1,6 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use serde::{Serialize, Deserialize};
+use anyhow::Result;
 
 /// Global configuration for the entire printing process
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -73,11 +74,38 @@ pub fn get_config_path() -> Option<PathBuf> {
     })
 }
 
+pub fn get_palettes_dir() -> Option<PathBuf> {
+    dirs::data_dir().map(|mut path| {
+        path.push("printspots");
+        path.push("palettes");
+        path
+    })
+}
+
+pub fn check_config_exists() -> bool {
+    match get_config_path() {
+        Some(path) => path.try_exists().unwrap_or(false),
+        None => false,
+    }
+}
+
+/// Check if palettes directory exists and return number of palettes
+pub fn check_pallettes_exists() -> Result<i32> {
+    match get_palettes_dir() {
+        Some(path) if path.try_exists().unwrap_or(false) => {
+            let entries = fs::read_dir(&path)?;
+            let count = entries.count() as i32;
+            Ok(count)
+        }
+        _ => Ok(0),
+    }
+}
+
 
 /// Load configuration from file, or return default if file doesn't exist
 pub fn load_config() -> PrintConfig {
     match get_config_path() {
-        Some(path) if path.exists() => {
+        Some(path) if path.try_exists().unwrap_or(false) => {
             match fs::read_to_string(&path) {
                 Ok(contents) => {
                     match serde_json::from_str::<PrintConfig>(&contents) {

@@ -10,6 +10,7 @@ keywords = ["printspots", "3d","3mf","stl","3dprint"]
 categories = ["utils"]
 
 [dependencies]
+anyhow.workspace = true
 serde.workspace = true
 serde_bytes.workspace = true
 serde_json.workspace = true
