@@ -187,7 +187,7 @@ release:crates-io:
   only:
     - tags
   when: manual
-  allow_failure: false
+  allow_failure: true
 
 release:gitlab:
   stage: release

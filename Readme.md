@@ -1,6 +1,6 @@
 # PrintSpots
 
-**PrintSpots** is an open-source toolkit for creating multi-layered 3D-printed halftone images. It enables makers, designers, and researchers to turn standard images into printable 3MF objects, calibrated for grayscale and color 3D printing.
+**PrintSpots** is an open-source toolkit for creating multi-layered 3D-printed grayscale images. It enables makers, designers, and researchers to turn standard images into printable 3MF objects, calibrated for grayscale and color 3D printing.
 
 👉 Learn more at **[printspots.org](https://printspots.org/)**
 
@@ -8,7 +8,7 @@
 
 ## Features
 
-* 🎨 Convert images into 3D-printable halftone models
+* 🎨 Convert images into 3D-printable grayscale models
 * 🖤 Generate grayscale calibration patterns for printer tuning
 * ⚙️ Flexible command-line interface with interactive configuration wizard
 * 🔧 Cross-platform configuration management
@@ -43,19 +43,19 @@ printspots configure
 
 This interactive wizard will guide you through setting up:
 - **Base thickness**: The thickness of the base layer (typically 1.0mm)
-- **Layer thickness**: Your printer's layer height (e.g., 0.05mm)
+- **Layer thickness**: Your printer's minimal layer height (e.g., 0.05mm).
 - **Image size**: Default size for the larger dimension of generated images (e.g., 100mm)
 - **Maximum layers**: Maximum number of layers to stack (e.g., 19)
 
 The configuration is saved and will be used as defaults for all subsequent commands. You can re-run `configure` anytime to update your settings.
 
-> **Note:** Other commands will work with built-in defaults even without configuration, but for best results, configure your printer first.
+> **Note:** Other commands will work with built-in defaults even without configuration, but that is for testing purposes only. the results in real life will not match.
 
 ---
 
 ### Step 2: Generate Calibration Pattern
 
-Create a calibration object to tune your printer for accurate grayscale halftones:
+Create a calibration object to tune printspots to your printer and filament for accurate grayscale objects:
 
 ```bash
 printspots calibration
@@ -65,18 +65,21 @@ This generates `calibration.3mf` with test squares at varying thickness levels.
 
 **Printing the calibration:**
 1. Open `calibration.3mf` in your slicer
-2. The object contains two parts:
+2. Set layer-height to the same as in Printspots configuration and infill to 100%.
+3. The object contains two parts:
    - **Bottom part**: Print in **black** filament
    - **Top part**: Print in **white** filament
-3. Slice and print the calibration object
+4. Slice and print the calibration object
 
 ---
 
-### Step 3: Photograph and Process Calibration
+### Step 3: Scan and Process Calibration
 
 After printing the calibration pattern:
 
-1. **Photograph** the printed calibration:
+1. **scan** the printed calibration:
+
+1. if you do not have flatbed scanner, **Photograph it** 
    - Use a white paper background for proper white balance
    - Ensure even lighting
    - Photograph from directly above
@@ -101,13 +104,13 @@ After printing the calibration pattern:
 
 ---
 
-### Step 4: Generate Your Halftone Image
+### Step 4: Generate Your Grayscale Image Object
 
-Convert your image into a 3D-printable halftone object:
+Convert your image into a 3D-printable greyscale object:
 
 ```bash
 printspots generate \
-  --input your-image.jpg \
+  --input your-input-image.jpg \
   --palette palette.toml \
   --output result.3mf
 ```
@@ -116,7 +119,7 @@ printspots generate \
 - A `prediction.png` file is generated in the current directory
 - Review this preview to see how your image will look
 - If the result doesn't look good:
-  - Try a different source image
+  - Try a different source image or
   - Adjust the contrast and brightness of your original image
   - Re-run the generate command
 
@@ -126,6 +129,8 @@ printspots generate \
 3. Assign filament colors accordingly:
    - **black** part → black filament
    - **white** part → white filament
+4. Do not forget to set the same layer-height as for Printspots configuration
+5. Use 100% infill or enouth top/bottom layers so the object is printed solid
 4. Slice and print!
 
 ---
@@ -196,7 +201,7 @@ Full documentation coming soon.
 * 🔜 Open-source release of the full codebase
 * 🔜 GUI application
 * 🔜 Additional calibration utilities
-* 🔜 Color halftone support
+* 🔜 inform user about progress of the process
 
 ---
 
