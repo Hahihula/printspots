@@ -11,7 +11,7 @@
         PrintSpots
       </a>
       <ul class="nav-links">
-        <li><router-link to="/">Welcome</router-link></li>
+        <!-- <li><router-link to="/">Welcome</router-link></li> -->
         <li><router-link to="/configure">Configure</router-link></li>
         <li><router-link to="/calibration">Calibration</router-link></li>
         <li><router-link to="/generation">Generation</router-link></li>
