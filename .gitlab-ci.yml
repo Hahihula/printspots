@@ -229,17 +229,22 @@ mirror:github:
   script:
     - git config --global user.name "GitLab CI"
     - git config --global user.email "ci@gitlab.com"
-    - git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git" || true
+    
+    # Set up the remote with authentication
+    - |
+      git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git" || \
+      git remote set-url github "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git"
+    
     - git fetch --all
     
+    # Handle branches and tags differently
     - |
       if [ "$CI_COMMIT_TAG" != "" ]; then
         echo "Processing tag: $CI_COMMIT_TAG"
-        # For tags, we just push the tag itself, no README modification needed
-        git push github refs/tags/$CI_COMMIT_TAG:refs/tags/$CI_COMMIT_TAG --force
+        # Use the full URL with token for pushing tags
+        git push "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git" "refs/tags/$CI_COMMIT_TAG:refs/tags/$CI_COMMIT_TAG" --force
       else
         echo "Processing branch: $CI_COMMIT_REF_NAME"
-        # For branches, do the README modification
         git checkout -B $CI_COMMIT_REF_NAME
         
         # README modification logic
@@ -269,7 +274,8 @@ mirror:github:
         
         git add README.md
         git commit -m "Update README for GitHub mirror [skip ci]" || true
-        git push github $CI_COMMIT_REF_NAME --force
+        # Also use full URL for consistency
+        git push "https://x-access-token:${GITHUB_TOKEN}@github.com/Hahihula/printspots.git" "$CI_COMMIT_REF_NAME" --force
       fi
   only:
     - main
