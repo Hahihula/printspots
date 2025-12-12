@@ -1,0 +1,820 @@
+<template>
+  <div class="container">
+    <h1>Grayscale Calibration Grid Picker</h1>
+    <p class="subtitle">Extract color palette from your printed calibration grid</p>
+
+    <GridControls :max-layers="maxLayers" :grid-size="gridSize" @update:max-layers="maxLayers = $event"
+      @update-grid-size="updateGridSize" />
+
+    <Uploader :has-image="!!imageUrl" @file-selected="loadImage" />
+
+    <div v-if="imageUrl" class="main-content">
+      <div class="image-section">
+        <div class="instructions">
+          <strong>Instructions:</strong> Click on each grid square to pick its color. The grid should match your printed
+          calibration pattern ({{ gridSize.x }}×{{ gridSize.y }} squares, layers 0-{{ maxLayers }}).
+        </div>
+
+        <ImageToolbar @rotate-left="rotateLeft" @rotate-right="rotateRight" @flip-horizontal="flipHorizontal"
+          @flip-vertical="flipVertical" />
+
+        <Grid ref="grid" :image-url="imageUrl" :transformed-image-url="transformedImageUrl" :grid-ready="gridReady"
+          :grid-cells="gridCells" :colors="colors" :grid-offset="gridOffset" :grid-scale="gridScale"
+          :is-eyedropper-active="isEyedropperActive" :hide-grid="isEyedropperActive" @image-load="onImageLoad"
+          @pick-color="pickColor" @update-grid-offset="updateGridOffset" @update-grid-scale="updateGridScale"
+          @auto-detect-grid="autoDetectGrid" @pick-color-with-eyedropper="pickColorWithEyedropper" />
+      </div>
+
+      <div class="sidebar">
+        <ColorPalette :max-layers="maxLayers" :colors="colors" :selected-layer="selectedLayer"
+          :picked-count="pickedCount" @update:selected-layer="selectedLayer = $event" @auto-pick="autoPick"
+          @clear-colors="clearColors" @activate-eyedropper="activateEyedropper" />
+
+        <div class="control-group" style="margin-bottom: 20px;">
+          <button @click="savePalette" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
+            Save Palette & Continue
+          </button>
+        </div>
+
+        <div class="control-group" style="margin-bottom: 20px;">
+          <label>Output Format (Debug)</label>
+          <select v-model="outputFormat">
+            <option value="ron">RON (New)</option>
+            <option value="toml">TOML (Legacy)</option>
+          </select>
+        </div>
+
+        <OutputPanel :output="generateOutput()" @download="downloadFile" @copy="copyToClipboard"
+          :file_format="outputFormat" />
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import Uploader from './Uploader.vue';
+import ImageToolbar from './ImageToolbar.vue';
+import GridControls from './GridControls.vue';
+import ColorPalette from './ColorPalette.vue';
+import Grid from './Grid.vue';
+import OutputPanel from './OutputPanel.vue';
+
+export default {
+  name: 'GrayscaleCalibration',
+  components: {
+    Uploader,
+    ImageToolbar,
+    GridControls,
+    ColorPalette,
+    OutputPanel,
+    Grid
+  },
+  props: {
+    initialMaxLayers: {
+      type: Number,
+      default: 15
+    }
+  },
+  data() {
+    return {
+      maxLayers: this.initialMaxLayers,
+      gridSize: { x: 4, y: 4 },
+      imageUrl: null,
+      transformedImageUrl: null,
+      rotation: 0,
+      flippedH: false,
+      flippedV: false,
+      colors: {},
+      selectedLayer: null,
+      gridCells: [],
+      gridReady: false,
+      gridOffset: { x: 0, y: 0 },
+      gridScale: 1.0,
+      gridOffset: { x: 0, y: 0 },
+      gridScale: 1.0,
+      isEyedropperActive: false,
+      outputFormat: 'ron'
+    };
+  },
+  computed: {
+    pickedCount() {
+      return Object.keys(this.colors).length;
+    }
+  },
+  watch: {
+    maxLayers() {
+      this.updateGrid();
+    },
+    gridSize: {
+      handler() {
+        this.updateGrid();
+      },
+      deep: true
+    },
+    gridOffset: {
+      handler() {
+        this.updateGrid();
+      },
+      deep: true
+    },
+    gridScale() {
+      this.updateGrid();
+    }
+  },
+  mounted() {
+    this.gridSize = {
+      x: Math.ceil(Math.sqrt(this.maxLayers + 1)),
+      y: Math.ceil(Math.sqrt(this.maxLayers + 1))
+    };
+  },
+  methods: {
+    loadImage(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.imageUrl = e.target.result;
+        this.transformedImageUrl = null;
+        this.rotation = 0;
+        this.flippedH = false;
+        this.flippedV = false;
+        this.colors = {};
+        this.gridReady = false;
+      };
+      reader.readAsDataURL(file);
+    },
+    onImageLoad() {
+      this.$nextTick(() => {
+        this.updateGrid();
+        this.gridReady = true;
+      });
+    },
+    updateGrid() {
+      const img = this.$refs.grid?.$refs.calibrationImage;
+      if (!img) return;
+
+      const width = img.width * this.gridScale;
+      const height = img.height * this.gridScale;
+      const cellWidth = width / this.gridSize.x;
+      const cellHeight = height / this.gridSize.y;
+
+      this.gridCells = [];
+      let layerIndex = 0;
+
+      for (let row = 0; row < this.gridSize.y; row++) {
+        for (let col = 0; col < this.gridSize.x; col++) {
+          if (layerIndex <= this.maxLayers) {
+            this.gridCells.push({
+              row: row,
+              col: col,
+              x: col * cellWidth + this.gridOffset.x,
+              y: row * cellHeight + this.gridOffset.y,
+              width: cellWidth,
+              height: cellHeight,
+              layerIndex: layerIndex
+            });
+            layerIndex++;
+          }
+        }
+      }
+    },
+
+    pickColor(cell) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = this.$refs.grid?.$refs.calibrationImage;
+
+      const imgSource = new Image();
+      imgSource.onload = () => {
+        canvas.width = imgSource.width;
+        canvas.height = imgSource.height;
+        ctx.drawImage(imgSource, 0, 0);
+
+        const scaleX = imgSource.width / img.width;
+        const scaleY = imgSource.height / img.height;
+
+        const centerX = (cell.x + cell.width / 2) * scaleX / this.gridScale;
+        const centerY = (cell.y + cell.height / 2) * scaleY / this.gridScale;
+
+        const sampleSize = 10;
+        const imageData = ctx.getImageData(
+          Math.max(0, centerX - sampleSize / 2),
+          Math.max(0, centerY - sampleSize / 2),
+          sampleSize,
+          sampleSize
+        );
+
+        const data = imageData.data;
+        let r = 0, g = 0, b = 0, count = 0;
+
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
+        }
+
+        r = Math.round(r / count);
+        g = Math.round(g / count);
+        b = Math.round(b / count);
+
+        this.colors[cell.layerIndex] = [r, g, b];
+        this.selectedLayer = cell.layerIndex;
+      };
+      imgSource.src = this.transformedImageUrl || this.imageUrl;
+    },
+    autoPick() {
+      // Pick all colors first
+      for (let cell of this.gridCells) {
+        this.pickColor(cell);
+      }
+
+      // Wait for all colors to be picked, then run deduplication
+      setTimeout(() => {
+        this.deduplicateSimilarColors();
+      }, 500);
+    },
+
+    // Calculate perceptual color difference (simplified Delta E)
+    colorDifference(color1, color2) {
+      const [r1, g1, b1] = color1;
+      const [r2, g2, b2] = color2;
+
+      // Weighted Euclidean distance (approximates human perception)
+      const rMean = (r1 + r2) / 2;
+      const deltaR = r1 - r2;
+      const deltaG = g1 - g2;
+      const deltaB = b1 - b2;
+
+      const weightR = 2 + rMean / 256;
+      const weightG = 4.0;
+      const weightB = 2 + (255 - rMean) / 256;
+
+      return Math.sqrt(
+        weightR * deltaR * deltaR +
+        weightG * deltaG * deltaG +
+        weightB * deltaB * deltaB
+      );
+    },
+
+    deduplicateSimilarColors() {
+      // Threshold for color similarity (lower = more similar)
+      // Typical values: 5-15 for very similar, 15-30 for similar, 30+ for different
+      const SIMILARITY_THRESHOLD = 15;
+
+      // Get sorted layer indices
+      const layerIndices = Object.keys(this.colors)
+        .map(k => parseInt(k))
+        .sort((a, b) => a - b);
+
+      if (layerIndices.length < 2) return;
+
+      const toRemove = [];
+
+      // Start from the highest layers and work backwards
+      for (let i = layerIndices.length - 1; i > 0; i--) {
+        const currentLayer = layerIndices[i];
+        const previousLayer = layerIndices[i - 1];
+
+        const currentColor = this.colors[currentLayer];
+        const previousColor = this.colors[previousLayer];
+
+        const difference = this.colorDifference(currentColor, previousColor);
+
+        // If colors are too similar, mark for removal
+        if (difference < SIMILARITY_THRESHOLD) {
+          toRemove.push(currentLayer);
+        }
+      }
+
+      // Remove similar colors
+      if (toRemove.length > 0) {
+        toRemove.forEach(layer => {
+          delete this.colors[layer];
+        });
+
+        console.log(`Removed ${toRemove.length} similar colors:`, toRemove);
+        alert(`Auto-pick complete! Removed ${toRemove.length} colors that were too similar to their neighbors.`);
+      }
+    },
+    autoDetectGrid() {
+      const img = this.$refs.grid?.$refs.calibrationImage;
+      if (!img) return;
+
+      this.gridOffset = { x: 10, y: 10 };
+      this.gridScale = 0.95;
+      this.updateGrid();
+    },
+    updateGridSize({ axis, value }) {
+      this.gridSize[axis] = value;
+    },
+    updateGridOffset({ axis, value }) {
+      this.gridOffset[axis] = value;
+    },
+    updateGridScale(value) {
+      this.gridScale = value;
+    },
+    activateEyedropper() {
+      if (this.selectedLayer === null) {
+        alert('Please select a color square first.');
+        return;
+      }
+      this.isEyedropperActive = true;
+    },
+    pickColorWithEyedropper(event) {
+      if (!this.isEyedropperActive) return;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = this.$refs.grid?.$refs.calibrationImage;
+      if (!img) return;
+
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+
+      const rect = img.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const scaleX = img.naturalWidth / img.width;
+      const scaleY = img.naturalHeight / img.height;
+
+      const imageData = ctx.getImageData(x * scaleX, y * scaleY, 1, 1);
+      const [r, g, b] = imageData.data;
+
+      this.colors[this.selectedLayer] = [r, g, b];
+      this.isEyedropperActive = false;
+    },
+    clearColors() {
+      this.colors = {};
+    },
+    applyTransformations() {
+      if (!this.imageUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (this.rotation % 180 === 90) {
+          canvas.width = img.height;
+          canvas.height = img.width;
+        } else {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((this.rotation * Math.PI) / 180);
+        ctx.scale(this.flippedH ? -1 : 1, this.flippedV ? -1 : 1);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        ctx.restore();
+
+        this.transformedImageUrl = canvas.toDataURL();
+        this.gridReady = false;
+        this.$nextTick(() => {
+          this.updateGrid();
+          this.gridReady = true;
+        });
+      };
+      img.src = this.imageUrl;
+    },
+    rotateLeft() {
+      this.rotation = (this.rotation - 90 + 360) % 360;
+      this.applyTransformations();
+    },
+    rotateRight() {
+      this.rotation = (this.rotation + 90) % 360;
+      this.applyTransformations();
+    },
+    flipHorizontal() {
+      this.flippedH = !this.flippedH;
+      this.applyTransformations();
+    },
+    flipVertical() {
+      this.flippedV = !this.flippedV;
+      this.applyTransformations();
+    },
+    getColorDisplay(index) {
+      if (this.colors[index]) {
+        const [r, g, b] = this.colors[index];
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+      return '#f0f0f0';
+    },
+    savePalette() {
+      const colors = [];
+      const layer_counts = [];
+
+      // Only export picked colors (sorted by layer index)
+      const pickedLayers = Object.keys(this.colors)
+        .map(k => parseInt(k))
+        .sort((a, b) => a - b);
+
+      for (let layer of pickedLayers) {
+        layer_counts.push(layer);
+        colors.push(this.colors[layer]);
+      }
+
+      this.$emit('save', { colors, layer_counts });
+    },
+    generateOutput() {
+      if (this.outputFormat === 'ron') {
+        return this.generateRonOutput();
+      } else {
+        return this.generateTomlOutput();
+      }
+    },
+    generateTomlOutput() {
+      let output = 'colors = [';
+      const colorArrays = [];
+
+      // Only export picked colors
+      const pickedLayers = Object.keys(this.colors)
+        .map(k => parseInt(k))
+        .sort((a, b) => a - b);
+
+      for (let layer of pickedLayers) {
+        colorArrays.push(`[${this.colors[layer].join(', ')}]`);
+      }
+
+      output += colorArrays.join(', ') + ']\n';
+      output += 'layer_counts = [';
+      output += pickedLayers.join(', ') + ']';
+
+      return output;
+    },
+    generateRonOutput() {
+      let output = '(\n';
+      output += '    colors: [\n';
+
+      // Only export picked colors
+      const pickedLayers = Object.keys(this.colors)
+        .map(k => parseInt(k))
+        .sort((a, b) => a - b);
+
+      for (let layer of pickedLayers) {
+        const [r, g, b] = this.colors[layer];
+        output += `        (${r}, ${g}, ${b}),\n`;
+      }
+
+      output += '    ],\n';
+      output += '    layer_counts: [\n';
+      output += `        ${pickedLayers.join(', ')}\n`;
+      output += '    ],\n';
+      output += ')';
+
+      return output;
+    },
+    downloadFile() {
+      const content = this.generateOutput();
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `grayscale_palette.${this.outputFormat}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    async copyToClipboard() {
+      const content = this.generateOutput();
+      try {
+        await navigator.clipboard.writeText(content);
+        alert('Copied to clipboard!');
+      }
+      catch (err) {
+        alert('Failed to copy to clipboard');
+      }
+    }
+  }
+}
+</script>
+
+<style scoped>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.container {
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 20px;
+  color: #fff;
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+h1 {
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  color: #aaa;
+  margin-bottom: 30px;
+}
+
+.controls {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+select {
+  padding: 8px 12px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  font-size: 16px;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  min-width: 120px;
+}
+
+select:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+label {
+  font-size: 14px;
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+input[type="number"] {
+  padding: 8px 12px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  font-size: 16px;
+  width: 120px;
+  background: #333;
+  color: white;
+}
+
+input[type="number"]:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.upload-area {
+  border: 3px dashed #555;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 30px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.upload-area:hover {
+  border-color: #4CAF50;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.upload-area.has-image {
+  display: none;
+}
+
+.main-content {
+  display: flex;
+  gap: 30px;
+  flex-direction: column;
+  /* Stacking on mobile */
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    flex-direction: row;
+  }
+}
+
+.image-section {
+  flex: 1;
+}
+
+.image-container {
+  position: relative;
+  display: inline-block;
+  border: 2px solid #444;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.calibration-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.grid-cell {
+  position: absolute;
+  border: 1px solid rgba(100, 100, 255, 0.5);
+  cursor: pointer;
+  pointer-events: all;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-cell:hover {
+  border: 2px solid #2196F3;
+  background: rgba(33, 150, 243, 0.2);
+}
+
+.grid-cell.picked {
+  border: 2px solid #4CAF50;
+  background: rgba(76, 175, 80, 0.2);
+}
+
+.cell-label {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.sidebar {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .sidebar {
+    width: 300px;
+    /* Reduced from 350px just in case */
+  }
+}
+
+.color-palette {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.color-box {
+  aspect-ratio: 1;
+  border: 2px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.color-box:hover {
+  transform: scale(1.1);
+  border-color: #2196F3;
+}
+
+.color-box.active {
+  border-color: #4CAF50;
+  border-width: 3px;
+}
+
+.color-index {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  /* Ensure text is visible */
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.output-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.output-preview {
+  background: #1a1a1a;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 15px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 15px 0;
+  white-space: pre;
+  color: #e0e0e0;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #4CAF50;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #45a049;
+}
+
+.btn-secondary {
+  background: #2196F3;
+  color: white;
+  margin-right: 10px;
+}
+
+.btn-secondary:hover {
+  background: #1976D2;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.status {
+  padding: 10px;
+  background: rgba(25, 118, 210, 0.2);
+  border-radius: 6px;
+  margin-top: 15px;
+  font-size: 14px;
+  color: #90caf9;
+}
+
+.instructions {
+  background: rgba(255, 152, 0, 0.1);
+  border-left: 4px solid #ff9800;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  color: white;
+}
+
+.grid-adjust {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.grid-adjust-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.grid-adjust-row:last-child {
+  margin-bottom: 0;
+}
+
+.small-input {
+  width: 60px;
+  padding: 5px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #333;
+  color: white;
+}
+</style>
