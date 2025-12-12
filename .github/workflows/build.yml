@@ -5,7 +5,9 @@ on:
     branches:
       - main
     tags:
-      - '*'
+      - "*"
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -26,6 +28,17 @@ jobs:
           name: windows-cli
           path: artifacts/windows/
 
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: artifacts/windows/*
+          file_glob: true
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "Windows CLI binaries"
+
   build-windows-gui:
     runs-on: windows-latest
     steps:
@@ -35,7 +48,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
       - name: Install Yarn
         run: npm install -g yarn
       - name: Build GUI
@@ -55,6 +68,17 @@ jobs:
           name: windows-gui
           path: artifacts/windows/
 
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: artifacts/windows/*
+          file_glob: true
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "Windows GUI binaries"
+
   build-macos-cli:
     runs-on: macos-latest
     steps:
@@ -72,6 +96,17 @@ jobs:
           name: macos-cli
           path: artifacts/macos/
 
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: artifacts/macos/*
+          file_glob: true
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "macOS CLI binaries"
+
   build-macos-gui:
     runs-on: macos-latest
     steps:
@@ -81,7 +116,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
       - name: Install Yarn
         run: npm install -g yarn
       - name: Build GUI
@@ -98,3 +133,14 @@ jobs:
         with:
           name: macos-gui
           path: artifacts/macos/
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: artifacts/macos/*
+          file_glob: true
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "macOS GUI binaries"
