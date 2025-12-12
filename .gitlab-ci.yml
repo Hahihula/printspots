@@ -61,9 +61,10 @@ build:linux:gui:
     - yarn tauri build
     - cd ..
     - mkdir -p artifacts/linux
-    - cp /builds/printspots/printspots/target/release/bundle/deb/*.deb artifacts/linux/ || true
-    - cp /builds/printspots/printspots/target/release/bundle/appimage/*.AppImage artifacts/linux/ || true
-    - cp /builds/printspots/printspots/target/release/printspots artifacts/linux/printspots-gui-linux-x86_64 || true
+    # Fixed: Use relative path from project root
+    - cp target/release/bundle/deb/*.deb artifacts/linux/ || true
+    - cp target/release/bundle/appimage/*.AppImage artifacts/linux/ || true
+    - cp target/release/printspots artifacts/linux/printspots-gui-linux-x86_64 || true
   artifacts:
     paths:
       - artifacts/linux/
@@ -308,6 +309,12 @@ github:release:create:
 
         # Authenticate with GitHub CLI
         export GH_TOKEN=$GITHUB_TOKEN
+
+        # Check if release already exists and delete it to avoid conflicts
+        if gh release view "$CI_COMMIT_TAG" --repo "Hahihula/printspots" 2>/dev/null; then
+          echo "Release $CI_COMMIT_TAG already exists, deleting it first..."
+          gh release delete "$CI_COMMIT_TAG" --repo "Hahihula/printspots" --yes
+        fi
 
         # Create release to trigger GitHub Actions workflow for building Windows/macOS binaries
         gh release create "$CI_COMMIT_TAG" \
