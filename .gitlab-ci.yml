@@ -63,7 +63,7 @@ build:linux:gui:
     - mkdir -p artifacts/linux
     - cp /builds/printspots/printspots/target/release/bundle/deb/*.deb artifacts/linux/ || true
     - cp /builds/printspots/printspots/target/release/bundle/appimage/*.AppImage artifacts/linux/ || true
-    - cp /builds/printspots/printspots/target/release/printspots* artifacts/linux/printspots-gui-linux-x86_64 || true
+    - cp /builds/printspots/printspots/target/release/printspots artifacts/linux/printspots-gui-linux-x86_64 || true
   artifacts:
     paths:
       - artifacts/linux/
