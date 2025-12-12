@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut image_objects = generate_image(&printable, &palette, &config, flat_top);
 
-            if (add_pads) {
+            if add_pads {
                 println!("Adding build plate padding to objects...");
                 add_build_plate_padding(&mut image_objects.black_mesh, 3.0); // this is unnecesary
                 add_build_plate_padding(&mut image_objects.white_mesh, 5.0);

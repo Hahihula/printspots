@@ -10,6 +10,9 @@ pub mod calibration;
 pub mod image_processing;
 pub mod generate;
 
+#[cfg(test)]
+mod tests;
+
 // Helper struct for serializing/deserializing Rgb<u8>
 #[derive(Serialize, Deserialize)]
 struct SerializableRgb(#[serde(with = "serde_bytes")] pub [u8; 3]);
@@ -38,8 +41,7 @@ pub struct ColorPalette {
 mod vec_rgb_serde {
     use super::{Rgb, SerializableRgb};
     use serde::{Serializer, Deserializer, Serialize, Deserialize};
-    use serde::ser::Error as SerError;
-    use serde::de::Error as DeError;
+
 
     pub fn serialize<S>(colors: &Vec<Rgb<u8>>, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -89,11 +91,11 @@ impl ColorPalette {
     }
 
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
-        let toml_string = toml::to_string(self)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to serialize ColorPalette to TOML: {}", e)))?;
+        let ron_string = ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to serialize ColorPalette to RON: {}", e)))?;
         
         let mut file = fs::File::create(path)?;
-        file.write_all(toml_string.as_bytes())?;
+        file.write_all(ron_string.as_bytes())?;
         Ok(())
     }
 
@@ -102,8 +104,14 @@ impl ColorPalette {
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
 
+        // Try RON first
+        if let Ok(palette) = ron::from_str::<ColorPalette>(&contents) {
+            return Ok(palette);
+        }
+
+        // Fallback to TOML
         let palette: ColorPalette = toml::from_str(&contents)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("Failed to deserialize ColorPalette from TOML: {}", e)))?;
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("Failed to deserialize ColorPalette from RON or TOML: {}", e)))?;
         Ok(palette)
     }
 }
