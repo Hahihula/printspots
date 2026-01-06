@@ -9,7 +9,8 @@
 ## Features
 
 * 🎨 Convert images into 3D-printable grayscale models
-* 🖤 Generate grayscale calibration patterns for printer tuning
+* �️ **Alpha channel support** - Use transparent images to create non-rectangular prints
+* �🖤 Generate grayscale calibration patterns for printer tuning
 * ⚙️ Flexible command-line interface with interactive configuration wizard
 * 🔧 Cross-platform configuration management
 * 📦 Distributed as binaries for easy installation (source release coming soon)
@@ -163,12 +164,18 @@ Convert an image to a 3D halftone object.
 printspots generate [OPTIONS] --input <IMAGE> --palette <PALETTE> --output <OUTPUT>
 
 Options:
-  -i, --input <IMAGE>      Input image file
+  -i, --input <IMAGE>      Input image file (supports PNG, JPG, etc.)
   -s, --size <SIZE>        Size in mm (larger dimension) [default: 100]
       --flat-top           Create output with flat top
   -p, --palette <PALETTE>  Path to palette file (.toml)
   -o, --output <OUTPUT>    Output 3MF filename
 ```
+
+**Alpha Channel Support:**
+- Images with alpha channels (transparency) are fully supported
+- Transparent pixels (alpha < 128) are automatically excluded from the mesh
+- This allows creating non-rectangular prints that follow the shape of your image
+- Works in both CLI and GUI
 
 ---
 
