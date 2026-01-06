@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use image::RgbImage;
+use image::{GrayImage, RgbImage};
 use threemf::{model::Triangle, Mesh};
 
 use crate::{config::PrintConfig, grayscale::ColorPalette, mesh::{generate_box, Rectangle}, utils::{ PrintObjects}};
@@ -10,13 +10,14 @@ pub fn generate_image(
     palette: &ColorPalette,
     config: &PrintConfig,
     flat_top: bool,
+    mask: Option<&GrayImage>,
 ) -> PrintObjects {
     if flat_top {
         // Use existing vectorized approach for flat top
-        generate_image_objects_vectorized(image, palette, config, flat_top)
+        generate_image_objects_vectorized(image, palette, config, flat_top, mask)
     } else {
         // For variable height, create optimized layer structure
-        generate_variable_height_optimized(image, palette, config)
+        generate_variable_height_optimized(image, palette, config, mask)
     }
 }
 
@@ -25,8 +26,9 @@ pub fn generate_image_objects_vectorized(
     palette: &ColorPalette,
     config: &PrintConfig,
     flat_top: bool,
+    mask: Option<&GrayImage>,
 ) -> PrintObjects {
-    let regions = vectorize_image_to_regions(image, palette);
+    let regions = vectorize_image_to_regions(image, palette, mask);
     let (width, height) = image.dimensions();
     let (pixel_width, pixel_height) = config.pixel_size(width, height);
     
@@ -69,33 +71,41 @@ fn generate_variable_height_optimized(
     image: &RgbImage,
     palette: &ColorPalette,
     config: &PrintConfig,
+    mask: Option<&GrayImage>,
 ) -> PrintObjects {
     let (width, height) = image.dimensions();
     let (pixel_width, pixel_height) = config.pixel_size(width, height);
     
-    // Calculate total image bounds
-    let total_width = width as f32 * pixel_width;
-    let total_height = height as f32 * pixel_height;
-    
-    // Create single black base covering entire image
-    let mut black_mesh = Mesh::new();
-    generate_box(
-        &mut black_mesh.vertices,
-        &mut black_mesh.triangles,
-        0.0, 0.0, 0.0,
-        total_width, total_height, config.base_thickness,
-    );
-    
     // Group white regions by layer count and vectorize each group
-    let layer_map = image_to_layer_map(image, palette);
+    let layer_map = image_to_layer_map(image, palette, mask);
+    let mut black_mesh = Mesh::new();
     let mut white_mesh = Mesh::new();
     
-    // Group pixels by their layer count
+    // Collect all pixels that should have geometry (not masked out)
+    let mut all_pixels: Vec<(u32, u32)> = Vec::new();
     let mut layer_groups: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
+    
     for ((x, y), &layer_count) in &layer_map {
+        all_pixels.push((*x, *y));
         if layer_count > 0 {
             layer_groups.entry(layer_count).or_default().push((*x, *y));
         }
+    }
+    
+    // Create vectorized black base from all non-masked pixels
+    let black_rectangles = pixels_to_rectangles(&all_pixels);
+    for rect in black_rectangles {
+        let world_x = rect.x as f32 * pixel_width;
+        let world_y = rect.y as f32 * pixel_height;
+        let rect_width = rect.width as f32 * pixel_width;
+        let rect_height = rect.height as f32 * pixel_height;
+        
+        generate_box(
+            &mut black_mesh.vertices,
+            &mut black_mesh.triangles,
+            world_x, world_y, 0.0,
+            rect_width, rect_height, config.base_thickness,
+        );
     }
     
     // Create vectorized regions for each layer count
@@ -122,8 +132,8 @@ fn generate_variable_height_optimized(
     PrintObjects { black_mesh, white_mesh }
 }
 
-fn vectorize_image_to_regions(image: &RgbImage, palette: &ColorPalette) -> HashMap<u32, Vec<Rectangle>> {
-    let layer_map = image_to_layer_map(image, palette);
+fn vectorize_image_to_regions(image: &RgbImage, palette: &ColorPalette, mask: Option<&GrayImage>) -> HashMap<u32, Vec<Rectangle>> {
+    let layer_map = image_to_layer_map(image, palette, mask);
     let mut regions = HashMap::new();
     let mut layer_pixels: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
     
@@ -139,12 +149,21 @@ fn vectorize_image_to_regions(image: &RgbImage, palette: &ColorPalette) -> HashM
     regions
 }
 
-fn image_to_layer_map(image: &RgbImage, palette: &ColorPalette) -> HashMap<(u32, u32), u32> {
+fn image_to_layer_map(image: &RgbImage, palette: &ColorPalette, mask: Option<&GrayImage>) -> HashMap<(u32, u32), u32> {
     let (width, height) = image.dimensions();
     let mut layer_map = HashMap::with_capacity((width * height) as usize);
     
     for y in 0..height {
         for x in 0..width {
+            // Skip pixels that are masked (transparent)
+            if let Some(mask_img) = mask {
+                let alpha = mask_img.get_pixel(x, y)[0];
+                if alpha < 128 {
+                    // Skip transparent pixels
+                    continue;
+                }
+            }
+            
             let pixel = *image.get_pixel(x, y);
             let layer_count = palette.get_layer_count_for_color(&pixel);
             layer_map.insert((x, y), layer_count);
