@@ -1,7 +1,7 @@
 mod cli;
 // mod commands;
 // mod config;
-use image::{ImageReader, RgbImage, Rgb};
+use image::{DynamicImage, ImageReader, Luma, GrayImage};
 
 use clap::Parser;
 use cli::{Cli, Commands};
@@ -45,7 +45,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Processing image: {}", input.to_str().unwrap());
             let config = load_config();
             let img = ImageReader::open(input).unwrap().decode().unwrap();
-            let rgb_img: RgbImage = img.to_rgb8();
+            
+            // Check for alpha channel and extract mask if present
+            let (rgb_img, mask) = if img.color().has_alpha() {
+                println!("✓ Detected alpha channel, extracting mask...");
+                let rgba_img = img.to_rgba8();
+                let rgb_img = DynamicImage::ImageRgba8(rgba_img.clone()).to_rgb8();
+                
+                // Extract alpha channel as grayscale mask
+                let mask = GrayImage::from_fn(rgba_img.width(), rgba_img.height(), |x, y| {
+                    Luma([rgba_img.get_pixel(x, y)[3]])
+                });
+                
+                (rgb_img, Some(mask))
+            } else {
+                (img.to_rgb8(), None)
+            };
+            
             let palette = ColorPalette::load_from_file(palette).unwrap_or_else(|_| {
                 eprintln!("⚠ Could not load palette file, using fake grayscale palette.");
                 println!("⚠ Please generate a proper palette using the calibration command and provide its path.");
@@ -63,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             println!("Generating 3D printable objects...");
 
-            let mut image_objects = generate_image(&printable, &palette, &config, flat_top);
+            let mut image_objects = generate_image(&printable, &palette, &config, flat_top, mask.as_ref());
 
             if add_pads {
                 println!("Adding build plate padding to objects...");

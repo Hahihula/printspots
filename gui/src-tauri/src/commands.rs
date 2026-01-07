@@ -8,7 +8,7 @@ use printspots_core::{
 };
 use image::Rgb;
 use printspots_core::grayscale::{ColorPalette, image_processing::dither_to_palette, enforce_min_feature_size};
-use image::{ImageReader, RgbImage};
+use image::{DynamicImage, ImageReader, Luma, GrayImage};
 use std::io::Cursor;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -403,7 +403,21 @@ pub async fn generate_prediction(
         .map_err(|e| format!("Failed to guess image format: {}", e))?
         .decode()
         .map_err(|e| format!("Failed to decode image: {}", e))?;
-    let rgb_img: RgbImage = img.to_rgb8();
+    
+    // Check for alpha channel and extract mask if present
+    let (rgb_img, mask) = if img.color().has_alpha() {
+        let rgba_img = img.to_rgba8();
+        let rgb_img = DynamicImage::ImageRgba8(rgba_img.clone()).to_rgb8();
+        
+        // Extract alpha channel as grayscale mask
+        let mask = GrayImage::from_fn(rgba_img.width(), rgba_img.height(), |x, y| {
+            Luma([rgba_img.get_pixel(x, y)[3]])
+        });
+        
+        (rgb_img, Some(mask))
+    } else {
+        (img.to_rgb8(), None)
+    };
 
     // Load palette
     let palette_path = dirs::config_dir()
@@ -465,6 +479,13 @@ pub async fn generate_prediction(
     let prediction_path = project_dir.join("prediction.png");
     printable.save(&prediction_path)
         .map_err(|e| format!("Failed to save prediction: {}", e))?;
+    
+    // Save mask if present
+    if let Some(mask_img) = mask {
+        let mask_path = project_dir.join("mask.png");
+        mask_img.save(&mask_path)
+            .map_err(|e| format!("Failed to save mask: {}", e))?;
+    };
 
     // Encode as base64 and return
     let prediction_bytes = fs::read(&prediction_path).map_err(|e| e.to_string())?;
@@ -504,11 +525,25 @@ pub async fn generate_3mf(
         return Err("Prediction image not found. Please generate prediction first.".to_string());
     }
 
-    let prediction = ImageReader::open(&prediction_path)
+    let img = ImageReader::open(&prediction_path)
         .map_err(|e| format!("Failed to open prediction: {}", e))?
         .decode()
-        .map_err(|e| format!("Failed to decode prediction: {}", e))?
-        .to_rgb8();
+        .map_err(|e| format!("Failed to decode prediction: {}", e))?;
+    
+    let prediction = img.to_rgb8();
+    
+    // Load mask if it exists
+    let mask_path = project_dir.join("mask.png");
+    let mask = if mask_path.exists() {
+        let mask_img = ImageReader::open(&mask_path)
+            .map_err(|e| format!("Failed to open mask: {}", e))?
+            .decode()
+            .map_err(|e| format!("Failed to decode mask: {}", e))?
+            .to_luma8();
+        Some(mask_img)
+    } else {
+        None
+    };
 
     // Load palette
     let palette_path = dirs::config_dir()
@@ -532,7 +567,7 @@ pub async fn generate_3mf(
     };
 
     // Generate 3D meshes
-    let image_objects = generate_image(&prediction, &palette, &config, flat_top);
+    let image_objects = generate_image(&prediction, &palette, &config, flat_top, mask.as_ref());
 
     // Export to 3MF
     let output_path = project_dir.join("output.3mf");
