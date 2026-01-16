@@ -6,6 +6,7 @@ use printspots_core::{
     config::{PrintConfig,PrintingConstraints},
     grayscale::{calibration::generate_calibration_objects, export_to_3mf, generate::generate_image},
 };
+use printspots_core::mesh::add_build_plate_padding;
 use image::Rgb;
 use printspots_core::grayscale::{ColorPalette, image_processing::dither_to_palette, enforce_min_feature_size};
 use image::{DynamicImage, ImageReader, Luma, GrayImage};
@@ -82,6 +83,8 @@ pub struct PrinterProfile {
     pub bed_depth: f32,
     pub nozzle_diameter: f32,
     pub min_layer_height: f32,
+    #[serde(default)]
+    pub has_automatic_filament_change: bool,
 }
 
 #[tauri::command]
@@ -376,9 +379,13 @@ pub fn import_image(project_id: String, source_path: String) -> Result<String, S
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
-    pub image_size_mm: f32,
     pub base_thickness: f32,
     pub layer_thickness: f32,
+    pub image_size_mm: f32,
+    #[serde(default)]
+    pub add_pads: bool,
+    #[serde(default)]
+    pub flat_top: bool,
 }
 
 #[tauri::command]
@@ -509,7 +516,6 @@ pub async fn generate_3mf(
     project_config: ProjectConfig,
     _printer_profile_id: String,
     palette_id: String,
-    flat_top: bool,
 ) -> Result<MeshStats, String> {
     
 
@@ -567,7 +573,13 @@ pub async fn generate_3mf(
     };
 
     // Generate 3D meshes
-    let image_objects = generate_image(&prediction, &palette, &config, flat_top, mask.as_ref());
+    let mut image_objects = generate_image(&prediction, &palette, &config, project_config.flat_top, mask.as_ref());
+
+    // Add pads if requested
+    if project_config.add_pads {
+        add_build_plate_padding(&mut image_objects.black_mesh, 10.0);
+        add_build_plate_padding(&mut image_objects.white_mesh, 10.0);
+    }
 
     // Export to 3MF
     let output_path = project_dir.join("output.3mf");
@@ -593,6 +605,10 @@ pub struct ProjectData {
     pub image_size_mm: f32,
     pub base_thickness: f32,
     pub layer_thickness: f32,
+    #[serde(default)]
+    pub add_pads: bool,
+    #[serde(default)]
+    pub flat_top: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_image: Option<String>,
     #[serde(default)]

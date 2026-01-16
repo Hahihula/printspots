@@ -18,11 +18,22 @@
         <ImageToolbar @rotate-left="rotateLeft" @rotate-right="rotateRight" @flip-horizontal="flipHorizontal"
           @flip-vertical="flipVertical" />
 
+        <div class="white-balance-controls">
+          <button @click="autoWhiteBalance" class="btn btn-secondary">🎨 Auto White Balance</button>
+          <button @click="activateWhiteBalancePicker" class="btn btn-secondary" 
+                  :class="{ 'active': isWhiteBalancePickerActive }">
+            {{ isWhiteBalancePickerActive ? '👆 Click on white pixel...' : '⚪ Set White Balance' }}
+          </button>
+          <button @click="resetFilters" class="btn btn-secondary" title="Reset all rotations, flips and white balance">🔄 Reset</button>
+        </div>
+
         <Grid ref="grid" :image-url="imageUrl" :transformed-image-url="transformedImageUrl" :grid-ready="gridReady"
           :grid-cells="gridCells" :colors="colors" :grid-offset="gridOffset" :grid-scale="gridScale"
-          :is-eyedropper-active="isEyedropperActive" :hide-grid="isEyedropperActive" @image-load="onImageLoad"
+          :is-eyedropper-active="isEyedropperActive" :is-white-balance-picker-active="isWhiteBalancePickerActive"
+          :hide-grid="isEyedropperActive || isWhiteBalancePickerActive" @image-load="onImageLoad"
           @pick-color="pickColor" @update-grid-offset="updateGridOffset" @update-grid-scale="updateGridScale"
-          @auto-detect-grid="autoDetectGrid" @pick-color-with-eyedropper="pickColorWithEyedropper" />
+          @auto-detect-grid="autoDetectGrid" @pick-color-with-eyedropper="pickColorWithEyedropper"
+          @pick-white-balance-pixel="pickWhiteBalancePixel" />
       </div>
 
       <div class="sidebar">
@@ -34,6 +45,12 @@
           <button @click="savePalette" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
             Save Palette & Continue
           </button>
+        </div>
+
+        <div class="control-group" style="margin-bottom: 20px;">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="skipSimilarColors"> Skip similar colors
+          </label>
         </div>
 
         <div class="control-group" style="margin-bottom: 20px;">
@@ -81,18 +98,25 @@ export default {
       gridSize: { x: 4, y: 4 },
       imageUrl: null,
       transformedImageUrl: null,
-      rotation: 0,
-      flippedH: false,
-      flippedV: false,
       colors: {},
       selectedLayer: null,
       gridCells: [],
       gridReady: false,
       gridOffset: { x: 0, y: 0 },
       gridScale: 1.0,
-      gridOffset: { x: 0, y: 0 },
-      gridScale: 1.0,
       isEyedropperActive: false,
+      isWhiteBalancePickerActive: false,
+      imageFilters: {
+        rotation: 0,
+        flippedH: false,
+        flippedV: false,
+        wb: {
+          r: 1.0,
+          g: 1.0,
+          b: 1.0
+        }
+      },
+      skipSimilarColors: false,
       outputFormat: 'ron'
     };
   },
@@ -133,11 +157,21 @@ export default {
       reader.onload = (e) => {
         this.imageUrl = e.target.result;
         this.transformedImageUrl = null;
-        this.rotation = 0;
-        this.flippedH = false;
-        this.flippedV = false;
         this.colors = {};
         this.gridReady = false;
+        
+        // Reset filters for new image
+        this.imageFilters = {
+          rotation: 0,
+          flippedH: false,
+          flippedV: false,
+          wb: { r: 1.0, g: 1.0, b: 1.0 }
+        };
+
+        // Auto white balance after image loads
+        this.$nextTick(() => {
+          this.autoWhiteBalance();
+        });
       };
       reader.readAsDataURL(file);
     },
@@ -177,60 +211,69 @@ export default {
       }
     },
 
-    pickColor(cell) {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = this.$refs.grid?.$refs.calibrationImage;
-
-      const imgSource = new Image();
-      imgSource.onload = () => {
-        canvas.width = imgSource.width;
-        canvas.height = imgSource.height;
-        ctx.drawImage(imgSource, 0, 0);
-
-        const scaleX = imgSource.width / img.width;
-        const scaleY = imgSource.height / img.height;
-
-        const centerX = (cell.x + cell.width / 2) * scaleX / this.gridScale;
-        const centerY = (cell.y + cell.height / 2) * scaleY / this.gridScale;
-
-        const sampleSize = 10;
-        const imageData = ctx.getImageData(
-          Math.max(0, centerX - sampleSize / 2),
-          Math.max(0, centerY - sampleSize / 2),
-          sampleSize,
-          sampleSize
-        );
-
-        const data = imageData.data;
-        let r = 0, g = 0, b = 0, count = 0;
-
-        for (let i = 0; i < data.length; i += 4) {
-          r += data[i];
-          g += data[i + 1];
-          b += data[i + 2];
-          count++;
-        }
-
-        r = Math.round(r / count);
-        g = Math.round(g / count);
-        b = Math.round(b / count);
-
-        this.colors[cell.layerIndex] = [r, g, b];
-        this.selectedLayer = cell.layerIndex;
-      };
-      imgSource.src = this.transformedImageUrl || this.imageUrl;
-    },
-    autoPick() {
-      // Pick all colors first
+    async autoPick() {
+      // Pick all colors and wait for all of them to finish
+      const pickPromises = [];
       for (let cell of this.gridCells) {
-        this.pickColor(cell);
+        pickPromises.push(this.pickColor(cell));
       }
-
-      // Wait for all colors to be picked, then run deduplication
-      setTimeout(() => {
+      
+      await Promise.all(pickPromises);
+      
+      // Wait a tiny bit for Vue to update data if needed
+      this.$nextTick(() => {
         this.deduplicateSimilarColors();
-      }, 500);
+      });
+    },
+
+    pickColor(cell) {
+      return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = this.$refs.grid?.$refs.calibrationImage;
+        if (!img) { resolve(); return; }
+
+        const imgSource = new Image();
+        imgSource.onload = () => {
+          canvas.width = imgSource.width;
+          canvas.height = imgSource.height;
+          ctx.drawImage(imgSource, 0, 0);
+
+          const scaleX = imgSource.width / img.width;
+          const scaleY = imgSource.height / img.height;
+
+          const centerX = (cell.x + cell.width / 2) * scaleX / this.gridScale;
+          const centerY = (cell.y + cell.height / 2) * scaleY / this.gridScale;
+
+          const sampleSize = 10;
+          const imageData = ctx.getImageData(
+            Math.max(0, centerX - sampleSize / 2),
+            Math.max(0, centerY - sampleSize / 2),
+            sampleSize,
+            sampleSize
+          );
+
+          const data = imageData.data;
+          let r = 0, g = 0, b = 0, count = 0;
+
+          for (let i = 0; i < data.length; i += 4) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+
+          r = Math.round(r / count);
+          g = Math.round(g / count);
+          b = Math.round(b / count);
+
+          this.colors[cell.layerIndex] = [r, g, b];
+          this.selectedLayer = cell.layerIndex;
+          resolve();
+        };
+        imgSource.onerror = () => resolve();
+        imgSource.src = this.transformedImageUrl || this.imageUrl;
+      });
     },
 
     // Calculate perceptual color difference (simplified Delta E)
@@ -256,43 +299,76 @@ export default {
     },
 
     deduplicateSimilarColors() {
-      // Threshold for color similarity (lower = more similar)
-      // Typical values: 5-15 for very similar, 15-30 for similar, 30+ for different
       const SIMILARITY_THRESHOLD = 15;
+      const WHITE_THRESHOLD = 200; // RGB average above this = white enough
 
-      // Get sorted layer indices
       const layerIndices = Object.keys(this.colors)
         .map(k => parseInt(k))
         .sort((a, b) => a - b);
 
       if (layerIndices.length < 2) return;
 
-      const toRemove = [];
+      const toRemove = new Set();
+      let firstWhiteLayer = null;
+      let whiteCount = 0;
 
-      // Start from the highest layers and work backwards
-      for (let i = layerIndices.length - 1; i > 0; i--) {
-        const currentLayer = layerIndices[i];
-        const previousLayer = layerIndices[i - 1];
-
-        const currentColor = this.colors[currentLayer];
-        const previousColor = this.colors[previousLayer];
-
-        const difference = this.colorDifference(currentColor, previousColor);
-
-        // If colors are too similar, mark for removal
-        if (difference < SIMILARITY_THRESHOLD) {
-          toRemove.push(currentLayer);
+      // Find first "white enough" color
+      for (let layer of layerIndices) {
+        const [r, g, b] = this.colors[layer];
+        const brightness = (r + g + b) / 3;
+        if (brightness >= WHITE_THRESHOLD) {
+          if (firstWhiteLayer === null) {
+            firstWhiteLayer = layer;
+          }
+          break;
         }
       }
 
-      // Remove similar colors
-      if (toRemove.length > 0) {
-        toRemove.forEach(layer => {
-          delete this.colors[layer];
-        });
+      // Remove all layers above first white (they're all white enough)
+      if (firstWhiteLayer !== null) {
+        for (let layer of layerIndices) {
+          if (layer > firstWhiteLayer) {
+            toRemove.add(layer);
+            whiteCount++;
+          }
+        }
+      }
 
-        console.log(`Removed ${toRemove.length} similar colors:`, toRemove);
-        alert(`Auto-pick complete! Removed ${toRemove.length} colors that were too similar to their neighbors.`);
+      // Deduplicate similar colors (prefer lower layer count)
+      if (this.skipSimilarColors) {
+        for (let i = 0; i < layerIndices.length; i++) {
+          if (toRemove.has(layerIndices[i])) continue;
+
+          for (let j = i + 1; j < layerIndices.length; j++) {
+            if (toRemove.has(layerIndices[j])) continue;
+
+            const layer1 = layerIndices[i];
+            const layer2 = layerIndices[j];
+            const diff = this.colorDifference(this.colors[layer1], this.colors[layer2]);
+
+            if (diff < SIMILARITY_THRESHOLD) {
+              // Always remove the higher layer count (keep lower)
+              toRemove.add(layer2);
+            }
+          }
+        }
+      }
+
+      // Apply removals and report
+      toRemove.forEach(layer => delete this.colors[layer]);
+
+      if (toRemove.size > 0) {
+        const duplicateCount = toRemove.size - whiteCount;
+        let message = `Auto-pick complete! Removed ${toRemove.size} colors`;
+        if (whiteCount > 0 && duplicateCount > 0) {
+          message += ` (${whiteCount} above white threshold, ${duplicateCount} duplicates)`;
+        } else if (whiteCount > 0) {
+          message += ` (above white threshold)`;
+        } else {
+          message += ` (duplicates)`;
+        }
+        console.log(message, Array.from(toRemove));
+        alert(message + '.');
       }
     },
     autoDetectGrid() {
@@ -344,18 +420,20 @@ export default {
       this.colors[this.selectedLayer] = [r, g, b];
       this.isEyedropperActive = false;
     },
-    clearColors() {
-      this.colors = {};
-    },
-    applyTransformations() {
+    
+    // --- Improved Image Pipeline & Filters ---
+
+    applyImagePipeline() {
       if (!this.imageUrl) return;
+      console.log('Applying image pipeline:', this.imageFilters);
 
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        if (this.rotation % 180 === 90) {
+        // 1. Determine canvas dimensions based on rotation
+        if (this.imageFilters.rotation % 180 === 90) {
           canvas.width = img.height;
           canvas.height = img.width;
         } else {
@@ -363,37 +441,172 @@ export default {
           canvas.height = img.height;
         }
 
+        // 2. Apply Transformations (Rotation & Flip)
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate((this.rotation * Math.PI) / 180);
-        ctx.scale(this.flippedH ? -1 : 1, this.flippedV ? -1 : 1);
+        ctx.rotate((this.imageFilters.rotation * Math.PI) / 180);
+        ctx.scale(this.imageFilters.flippedH ? -1 : 1, this.imageFilters.flippedV ? -1 : 1);
         ctx.drawImage(img, -img.width / 2, -img.height / 2);
         ctx.restore();
 
-        this.transformedImageUrl = canvas.toDataURL();
+        // 3. Apply White Balance (if any filters set)
+        const wb = this.imageFilters.wb;
+        if (wb.r !== 1.0 || wb.g !== 1.0 || wb.b !== 1.0) {
+          console.log('Scaling colors:', wb);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            data[i] = Math.min(255, Math.max(0, Math.round(data[i] * wb.r)));
+            data[i + 1] = Math.min(255, Math.max(0, Math.round(data[i + 1] * wb.g)));
+            data[i + 2] = Math.min(255, Math.max(0, Math.round(data[i + 2] * wb.b)));
+          }
+          ctx.putImageData(imageData, 0, 0);
+        }
+
+        this.transformedImageUrl = canvas.toDataURL('image/png');
         this.gridReady = false;
         this.$nextTick(() => {
           this.updateGrid();
           this.gridReady = true;
+          console.log('Pipeline update complete');
         });
+      };
+      img.onerror = (err) => console.error('Failed to load original image in pipeline:', err);
+      img.src = this.imageUrl;
+    },
+
+    autoWhiteBalance() {
+      if (!this.imageUrl) return;
+      console.log('Calculating auto white balance...');
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = Math.min(img.width, 1000); // Scale down for speed
+        canvas.height = (canvas.width / img.width) * img.height;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Better AWB: use 99th percentile to find "white"
+        const rVals = [], gVals = [], bVals = [];
+        // Sample 10000 pixels or total pixels
+        const step = Math.max(4, Math.floor(data.length / (10000 * 4)) * 4);
+        for (let i = 0; i < data.length; i += step) {
+            rVals.push(data[i]);
+            gVals.push(data[i+1]);
+            bVals.push(data[i+2]);
+        }
+        
+        rVals.sort((a, b) => a - b);
+        gVals.sort((a, b) => a - b);
+        bVals.sort((a, b) => a - b);
+        
+        // Use 99.5th percentile
+        const pIdx = Math.floor(rVals.length * 0.995);
+        const refR = rVals[pIdx] || 255;
+        const refG = gVals[pIdx] || 255;
+        const refB = bVals[pIdx] || 255;
+        
+        console.log('Reference white point:', refR, refG, refB);
+
+        this.imageFilters.wb = {
+          r: refR > 0 ? 255 / refR : 1.0,
+          g: refG > 0 ? 255 / refG : 1.0,
+          b: refB > 0 ? 255 / refB : 1.0
+        };
+        
+        this.applyImagePipeline();
       };
       img.src = this.imageUrl;
     },
+
+    activateWhiteBalancePicker() {
+      this.isWhiteBalancePickerActive = true;
+      this.isEyedropperActive = false;
+    },
+
+    pickWhiteBalancePixel(event) {
+      if (!this.isWhiteBalancePickerActive || !this.imageUrl) return;
+
+      const img = this.$refs.grid?.$refs.calibrationImage;
+      if (!img) return;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const imgSource = new Image();
+      
+      imgSource.onload = () => {
+        canvas.width = imgSource.width;
+        canvas.height = imgSource.height;
+        ctx.drawImage(imgSource, 0, 0);
+
+        const rect = img.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        const scaleX = imgSource.width / img.width;
+        const scaleY = imgSource.height / img.height;
+
+        const imageData = ctx.getImageData(x * scaleX, y * scaleY, 1, 1);
+        const [r, g, b] = imageData.data;
+        
+        console.log('Sampled pixel for manual WB:', r, g, b);
+
+        // Additive WB: calculate further scaling needed to reach 255
+        const furtherScaleR = r > 0 ? 255 / r : 1.0;
+        const furtherScaleG = g > 0 ? 255 / g : 1.0;
+        const furtherScaleB = b > 0 ? 255 / b : 1.0;
+
+        this.imageFilters.wb = {
+          r: this.imageFilters.wb.r * furtherScaleR,
+          g: this.imageFilters.wb.g * furtherScaleG,
+          b: this.imageFilters.wb.b * furtherScaleB
+        };
+        
+        console.log('New WB factors:', this.imageFilters.wb);
+
+        this.isWhiteBalancePickerActive = false;
+        this.applyImagePipeline();
+      };
+      imgSource.src = this.transformedImageUrl || this.imageUrl;
+    },
+
+    resetFilters() {
+      this.imageFilters = {
+        rotation: 0,
+        flippedH: false,
+        flippedV: false,
+        wb: { r: 1.0, g: 1.0, b: 1.0 }
+      };
+      this.transformedImageUrl = null;
+      this.applyImagePipeline();
+    },
+
     rotateLeft() {
-      this.rotation = (this.rotation - 90 + 360) % 360;
-      this.applyTransformations();
+      this.imageFilters.rotation = (this.imageFilters.rotation - 90 + 360) % 360;
+      this.applyImagePipeline();
     },
+
     rotateRight() {
-      this.rotation = (this.rotation + 90) % 360;
-      this.applyTransformations();
+      this.imageFilters.rotation = (this.imageFilters.rotation + 90) % 360;
+      this.applyImagePipeline();
     },
+
     flipHorizontal() {
-      this.flippedH = !this.flippedH;
-      this.applyTransformations();
+      this.imageFilters.flippedH = !this.imageFilters.flippedH;
+      this.applyImagePipeline();
     },
+
     flipVertical() {
-      this.flippedV = !this.flippedV;
-      this.applyTransformations();
+      this.imageFilters.flippedV = !this.imageFilters.flippedV;
+      this.applyImagePipeline();
+    },
+
+    clearColors() {
+      this.colors = {};
     },
     getColorDisplay(index) {
       if (this.colors[index]) {
@@ -507,7 +720,8 @@ export default {
   padding: 20px;
   color: #fff;
   overflow-y: auto;
-  max-height: 100%;
+  max-height: calc(100vh - 60px); /* Account for header */
+  height: 100%;
 }
 
 h1 {
@@ -539,9 +753,10 @@ select {
   border: 1px solid #555;
   border-radius: 6px;
   font-size: 16px;
-  background: #2a2a2a;
-  color: #e0e0e0;
+  background: #f0f0f0;
+  color: #1a1a1a;
   min-width: 120px;
+  color-scheme: light; /* Force light mode for dropdown */
 }
 
 select:focus {
@@ -549,7 +764,22 @@ select:focus {
   border-color: #4CAF50;
 }
 
-label {
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.checkbox-label input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.control-group label {
   font-size: 14px;
   color: #e0e0e0;
   font-weight: 500;

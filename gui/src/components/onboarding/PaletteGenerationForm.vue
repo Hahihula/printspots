@@ -96,7 +96,7 @@ const props = defineProps({
       ],
       base_thickness: 1.0,
       layer_thickness: 0.1,
-      square_size: 10.0,
+      square_size: 7.0,
       max_layers: 19
     })
   },
