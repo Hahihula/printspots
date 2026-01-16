@@ -23,11 +23,13 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { usePrinterProfileStore } from '../stores/printerProfile';
+import { usePaletteStore } from '../stores/palette';
 import { invoke } from '@tauri-apps/api/core';
 import PaletteGenerationForm from '../components/onboarding/PaletteGenerationForm.vue';
 
 const router = useRouter();
 const profileStore = usePrinterProfileStore();
+const paletteStore = usePaletteStore();
 
 const printerProfile = computed(() => {
   return profileStore.activeProfile || profileStore.profiles[0];
@@ -35,6 +37,15 @@ const printerProfile = computed(() => {
 
 async function handleSave({ paletteData, name }) {
   try {
+    // Reload palettes to get the newly created one
+    await paletteStore.loadPalettes();
+    
+    // Find and set the newly created palette as active
+    const newPalette = paletteStore.palettes.find(p => p.id === name.replace(/ /g, '_'));
+    if (newPalette) {
+      paletteStore.setActivePalette(newPalette.id);
+    }
+    
     alert("Palette saved successfully!");
     router.push('/');
   } catch (e) {

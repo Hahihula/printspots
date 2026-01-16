@@ -507,7 +507,8 @@ export default {
   padding: 20px;
   color: #fff;
   overflow-y: auto;
-  max-height: 100%;
+  max-height: calc(100vh - 60px); /* Account for header */
+  height: 100%;
 }
 
 h1 {
@@ -539,9 +540,10 @@ select {
   border: 1px solid #555;
   border-radius: 6px;
   font-size: 16px;
-  background: #2a2a2a;
-  color: #e0e0e0;
+  background: #f0f0f0;
+  color: #1a1a1a;
   min-width: 120px;
+  color-scheme: light; /* Force light mode for dropdown */
 }
 
 select:focus {

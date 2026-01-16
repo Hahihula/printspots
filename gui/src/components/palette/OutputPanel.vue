@@ -25,6 +25,7 @@ export default {
   background: #f9f9f9;
   border-radius: 8px;
   padding: 20px;
+  color: #1a1a1a; /* Dark text for readability on light background */
 }
 
 .output-preview {
@@ -38,6 +39,7 @@ export default {
   overflow-y: auto;
   margin: 15px 0;
   white-space: pre;
+  color: #1a1a1a; /* Dark text for readability */
 }
 
 .btn {

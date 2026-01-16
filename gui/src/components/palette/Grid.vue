@@ -148,6 +148,7 @@ export default {
   border-radius: 6px;
   padding: 10px;
   margin-top: 10px;
+  color: #1a1a1a; /* Dark text for readability on white background */
 }
 
 .grid-adjust-row {

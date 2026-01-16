@@ -101,6 +101,7 @@ main {
   font-size: 1rem;
   transition: border-color 0.2s;
   overflow: visible; /* Ensure no scrollbars */
+  color-scheme: light; /* Force light mode for select dropdowns */
 }
 
 .form-input:focus, .form-select:focus {

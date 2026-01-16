@@ -12,8 +12,7 @@
       <div class="flex items-center gap-2">
         <label class="text-xs text-text-muted font-bold">PRINTER</label>
         <select :value="profileStore.activeProfileId" @change="handleProfileChange"
-          class="bg-dark border border-white/10 rounded px-3 py-1.5 text-sm min-w-[150px] focus:border-primary outline-none transition-colors"
-          style="color: var(--dark)">
+          class="bg-dark border border-white/10 rounded px-3 py-1.5 text-sm min-w-[150px] focus:border-primary outline-none transition-colors">
           <option v-for="profile in profileStore.profiles" :key="profile.id" :value="profile.id">
             {{ profile.name }}
           </option>
@@ -26,8 +25,7 @@
       <div class="flex items-center gap-2">
         <label class="text-xs text-text-muted font-bold">PALETTE</label>
         <select :value="paletteStore.activePaletteId" @change="handlePaletteChange"
-          class="bg-dark border border-white/10 rounded px-3 py-1.5 text-sm min-w-[150px] focus:border-secondary outline-none transition-colors"
-          style="color: var(--dark)">
+          class="bg-dark border border-white/10 rounded px-3 py-1.5 text-sm min-w-[150px] focus:border-secondary outline-none transition-colors">
           <option v-for="p in paletteStore.palettes" :key="p.id" :value="p.id">
             {{ getPaletteName(p) }}
           </option>
@@ -101,15 +99,16 @@ function handlePaletteChange(event) {
 }
 
 select {
-  background: var(--dark);
+  background: #f5f5f5;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text);
+  color: #1a1a1a;
   padding: 0.375rem 0.75rem;
   border-radius: 6px;
   font-size: 0.875rem;
   min-width: 150px;
   transition: all 0.2s;
   cursor: pointer;
+  color-scheme: light; /* Force light mode for dropdown */
 }
 
 select:hover {
@@ -124,15 +123,15 @@ select:focus {
 }
 
 select option {
-  background: var(--dark);
-  color: white;
+  background: #f5f5f5;
+  color: #1a1a1a;
   padding: 0.5rem;
 }
 
 select option[value="__add_new__"] {
-  color: var(--primary);
+  color: #00BCD4;
   font-weight: 600;
-  background: var(--dark);
+  background: #f5f5f5;
 }
 
 select option:disabled {

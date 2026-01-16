@@ -15,7 +15,7 @@ mod tests;
 
 // Helper struct for serializing/deserializing Rgb<u8>
 #[derive(Serialize, Deserialize)]
-struct SerializableRgb(#[serde(with = "serde_bytes")] pub [u8; 3]);
+struct SerializableRgb(pub [u8; 3]);
 
 impl From<Rgb<u8>> for SerializableRgb {
     fn from(rgb: Rgb<u8>) -> Self {
