@@ -40,6 +40,16 @@
           <input v-model.number="form.min_layer_height" type="number" step="0.01" class="form-input" />
         </div>
       </div>
+
+      <div class="form-group mt-4">
+        <label class="flex items-center gap-3 cursor-pointer group">
+          <div class="relative flex items-center">
+            <input v-model="form.has_automatic_filament_change" type="checkbox" class="sr-only peer" />
+            <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </div>
+          <span class="text-sm font-medium text-text-muted group-hover:text-white transition-colors">My printer has automatic filament change (AMS, MMU, etc.)</span>
+        </label>
+      </div>
     </div>
   </div>
 </template>
@@ -56,7 +66,8 @@ const props = defineProps({
       bed_width: 220,
       bed_depth: 220,
       nozzle_diameter: 0.4,
-      min_layer_height: 0.08
+      min_layer_height: 0.08,
+      has_automatic_filament_change: false
     })
   }
 });

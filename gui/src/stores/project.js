@@ -20,7 +20,7 @@ export const useProjectStore = defineStore('project', () => {
         try {
             const projectId = crypto.randomUUID();
             const now = Date.now();
-            
+
             // Create full project structure
             const projectData = {
                 id: projectId,
@@ -28,11 +28,13 @@ export const useProjectStore = defineStore('project', () => {
                 image_size_mm: config.image_size_mm,
                 base_thickness: config.base_thickness,
                 layer_thickness: config.layer_thickness,
+                add_pads: config.add_pads,
+                flat_top: config.flat_top,
                 source_image: null,
                 settings: {},
                 last_modified: now
             };
-            
+
             // Save full project data to backend
             await invoke('save_project_config', {
                 projectData
@@ -47,7 +49,7 @@ export const useProjectStore = defineStore('project', () => {
                 meshStats: null,
                 lastModified: now
             };
-            
+
             isDirty.value = false;
             showConfigModal.value = false;
         } catch (err) {
@@ -72,7 +74,7 @@ export const useProjectStore = defineStore('project', () => {
 
     async function loadSourceImage() {
         if (!currentProject.value) return;
-        
+
         try {
             const selected = await open({
                 multiple: false,
@@ -134,7 +136,11 @@ export const useProjectStore = defineStore('project', () => {
             const predictionDataUrl = await invoke('generate_prediction', {
                 projectId: currentProject.value.id,
                 imageData,
-                projectConfig,
+                projectConfig: {
+                    ...projectConfig,
+                    add_pads: currentProject.value.add_pads,
+                    flat_top: currentProject.value.flat_top
+                },
                 printerProfileId: profileStore.activeProfileId,
                 paletteId: paletteStore.activePaletteId,
             });
@@ -149,7 +155,7 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    async function generate3MF(flatTop = false) {
+    async function generate3MF() {
         if (!currentProject.value) {
             throw new Error('No project available');
         }
@@ -179,6 +185,8 @@ export const useProjectStore = defineStore('project', () => {
                 image_size_mm: currentProject.value.image_size_mm,
                 base_thickness: currentProject.value.base_thickness,
                 layer_thickness: currentProject.value.layer_thickness,
+                add_pads: currentProject.value.add_pads,
+                flat_top: currentProject.value.flat_top
             };
 
             // Call backend
@@ -187,7 +195,6 @@ export const useProjectStore = defineStore('project', () => {
                 projectConfig,
                 printerProfileId: profileStore.activeProfileId,
                 paletteId: paletteStore.activePaletteId,
-                flatTop,
             });
 
             currentProject.value.meshStats = meshStats;
@@ -262,6 +269,8 @@ export const useProjectStore = defineStore('project', () => {
                 image_size_mm: projectData.image_size_mm,
                 base_thickness: projectData.base_thickness,
                 layer_thickness: projectData.layer_thickness,
+                add_pads: projectData.add_pads,
+                flat_top: projectData.flat_top,
                 settings: projectData.settings || {},
                 lastModified: projectData.last_modified
             };

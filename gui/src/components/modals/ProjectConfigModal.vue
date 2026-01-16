@@ -35,6 +35,38 @@
             class="form-input" placeholder="0.05" />
         </div>
 
+        <!-- Advanced Options -->
+        <div class="form-group">
+          <label class="checkbox-container">
+            <input type="checkbox" v-model="formData.add_pads" />
+            <span class="checkbox-label">Add Slicer Pads</span>
+            <div class="tooltip-container">
+              <span class="info-icon">?</span>
+              <div class="tooltip-text">
+                Adds a small square on the build plate for each color. This acts as a hack for slicers, allowing you to choose to print colors one-by-one without the slicer automatically re-centering the object. Highly recommended for manual filament changes.
+              </div>
+            </div>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-container">
+            <input type="checkbox" v-model="formData.flat_top" />
+            <span class="checkbox-label">Flat Top Surface</span>
+            <div class="tooltip-container">
+              <span class="info-icon">?</span>
+              <div class="tooltip-text">
+                Expands the black background so that area under white parts is filled, resulting in a flat top surface. Warning: This requires many more filament changes and takes longer to print.
+              </div>
+            </div>
+          </label>
+          
+          <div v-if="formData.flat_top && !printerStore.activeProfile?.has_automatic_filament_change" class="warning-box">
+            <span class="warning-icon">⚠️</span>
+            <p>Your printer is set to <strong>manual filament change</strong>. Enabling "Flat Top Surface" will require <strong>one manual change per color per layer</strong>, which can be extremely tedious!</p>
+          </div>
+        </div>
+
         <!-- Buttons -->
         <div class="modal-actions">
           <button type="button" @click="handleCancel" class="btn-cancel">
@@ -51,6 +83,9 @@
 
 <script setup>
 import { ref, watch } from 'vue';
+import { usePrinterProfileStore } from '../../stores/printerProfile';
+
+const printerStore = usePrinterProfileStore();
 
 const props = defineProps({
   show: {
@@ -65,7 +100,9 @@ const formData = ref({
   name: '',
   image_size_mm: 100,
   base_thickness: 1.0,
-  layer_thickness: 0.05
+  layer_thickness: 0.05,
+  add_pads: false,
+  flat_top: false
 });
 
 // Reset form when modal is shown
@@ -76,7 +113,9 @@ watch(() => props.show, (newVal) => {
       name: `New Project ${today}`,
       image_size_mm: 100,
       base_thickness: 1.0,
-      layer_thickness: 0.05
+      layer_thickness: 0.05,
+      add_pads: false,
+      flat_top: false
     };
   }
 });
@@ -202,5 +241,88 @@ function handleCancel() {
 .btn-create:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info-icon {
+  width: 16px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: bold;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  width: 250px;
+  font-size: 12px;
+  line-height: 1.4;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+.warning-box {
+  margin-top: 0.75rem;
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.warning-icon {
+  font-size: 1.25rem;
+}
+
+.warning-box p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #ffb74d;
+  line-height: 1.4;
 }
 </style>

@@ -174,7 +174,7 @@ async function handleGeneratePrediction() {
 
 async function handleGenerate3MF() {
   try {
-    await projectStore.generate3MF(false); // flat_top = false
+    await projectStore.generate3MF();
   } catch (err) {
     alert(`Failed to generate 3MF: ${err.message}`);
   }
