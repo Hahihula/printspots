@@ -24,6 +24,7 @@
                   :class="{ 'active': isWhiteBalancePickerActive }">
             {{ isWhiteBalancePickerActive ? '👆 Click on white pixel...' : '⚪ Set White Balance' }}
           </button>
+          <button @click="resetFilters" class="btn btn-secondary" title="Reset all rotations, flips and white balance">🔄 Reset</button>
         </div>
 
         <Grid ref="grid" :image-url="imageUrl" :transformed-image-url="transformedImageUrl" :grid-ready="gridReady"
@@ -44,6 +45,12 @@
           <button @click="savePalette" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
             Save Palette & Continue
           </button>
+        </div>
+
+        <div class="control-group" style="margin-bottom: 20px;">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="skipSimilarColors"> Skip similar colors
+          </label>
         </div>
 
         <div class="control-group" style="margin-bottom: 20px;">
@@ -91,9 +98,6 @@ export default {
       gridSize: { x: 4, y: 4 },
       imageUrl: null,
       transformedImageUrl: null,
-      rotation: 0,
-      flippedH: false,
-      flippedV: false,
       colors: {},
       selectedLayer: null,
       gridCells: [],
@@ -112,6 +116,7 @@ export default {
           b: 1.0
         }
       },
+      skipSimilarColors: false,
       outputFormat: 'ron'
     };
   },
@@ -330,19 +335,21 @@ export default {
       }
 
       // Deduplicate similar colors (prefer lower layer count)
-      for (let i = 0; i < layerIndices.length; i++) {
-        if (toRemove.has(layerIndices[i])) continue;
+      if (this.skipSimilarColors) {
+        for (let i = 0; i < layerIndices.length; i++) {
+          if (toRemove.has(layerIndices[i])) continue;
 
-        for (let j = i + 1; j < layerIndices.length; j++) {
-          if (toRemove.has(layerIndices[j])) continue;
+          for (let j = i + 1; j < layerIndices.length; j++) {
+            if (toRemove.has(layerIndices[j])) continue;
 
-          const layer1 = layerIndices[i];
-          const layer2 = layerIndices[j];
-          const diff = this.colorDifference(this.colors[layer1], this.colors[layer2]);
+            const layer1 = layerIndices[i];
+            const layer2 = layerIndices[j];
+            const diff = this.colorDifference(this.colors[layer1], this.colors[layer2]);
 
-          if (diff < SIMILARITY_THRESHOLD) {
-            // Always remove the higher layer count (keep lower)
-            toRemove.add(layer2);
+            if (diff < SIMILARITY_THRESHOLD) {
+              // Always remove the higher layer count (keep lower)
+              toRemove.add(layer2);
+            }
           }
         }
       }
@@ -418,6 +425,7 @@ export default {
 
     applyImagePipeline() {
       if (!this.imageUrl) return;
+      console.log('Applying image pipeline:', this.imageFilters);
 
       const img = new Image();
       img.onload = () => {
@@ -444,52 +452,70 @@ export default {
         // 3. Apply White Balance (if any filters set)
         const wb = this.imageFilters.wb;
         if (wb.r !== 1.0 || wb.g !== 1.0 || wb.b !== 1.0) {
+          console.log('Scaling colors:', wb);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const data = imageData.data;
           for (let i = 0; i < data.length; i += 4) {
-            data[i] = Math.min(255, Math.round(data[i] * wb.r));
-            data[i + 1] = Math.min(255, Math.round(data[i + 1] * wb.g));
-            data[i + 2] = Math.min(255, Math.round(data[i + 2] * wb.b));
+            data[i] = Math.min(255, Math.max(0, Math.round(data[i] * wb.r)));
+            data[i + 1] = Math.min(255, Math.max(0, Math.round(data[i + 1] * wb.g)));
+            data[i + 2] = Math.min(255, Math.max(0, Math.round(data[i + 2] * wb.b)));
           }
           ctx.putImageData(imageData, 0, 0);
         }
 
-        this.transformedImageUrl = canvas.toDataURL();
+        this.transformedImageUrl = canvas.toDataURL('image/png');
         this.gridReady = false;
         this.$nextTick(() => {
           this.updateGrid();
           this.gridReady = true;
+          console.log('Pipeline update complete');
         });
       };
+      img.onerror = (err) => console.error('Failed to load original image in pipeline:', err);
       img.src = this.imageUrl;
     },
 
     autoWhiteBalance() {
       if (!this.imageUrl) return;
+      console.log('Calculating auto white balance...');
 
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+        canvas.width = Math.min(img.width, 1000); // Scale down for speed
+        canvas.height = (canvas.width / img.width) * img.height;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // Histogram Stretch style: Find max for each channel
-        let maxR = 0, maxG = 0, maxB = 0;
-        for (let i = 0; i < data.length; i += 4) {
-            maxR = Math.max(maxR, data[i]);
-            maxG = Math.max(maxG, data[i+1]);
-            maxB = Math.max(maxB, data[i+2]);
+        // Better AWB: use 99th percentile to find "white"
+        const rVals = [], gVals = [], bVals = [];
+        // Sample 10000 pixels or total pixels
+        const step = Math.max(4, Math.floor(data.length / (10000 * 4)) * 4);
+        for (let i = 0; i < data.length; i += step) {
+            rVals.push(data[i]);
+            gVals.push(data[i+1]);
+            bVals.push(data[i+2]);
         }
         
+        rVals.sort((a, b) => a - b);
+        gVals.sort((a, b) => a - b);
+        bVals.sort((a, b) => a - b);
+        
+        // Use 99.5th percentile
+        const pIdx = Math.floor(rVals.length * 0.995);
+        const refR = rVals[pIdx] || 255;
+        const refG = gVals[pIdx] || 255;
+        const refB = bVals[pIdx] || 255;
+        
+        console.log('Reference white point:', refR, refG, refB);
+
         this.imageFilters.wb = {
-          r: maxR > 0 ? 255 / maxR : 1.0,
-          g: maxG > 0 ? 255 / maxG : 1.0,
-          b: maxB > 0 ? 255 / maxB : 1.0
+          r: refR > 0 ? 255 / refR : 1.0,
+          g: refG > 0 ? 255 / refG : 1.0,
+          b: refB > 0 ? 255 / refB : 1.0
         };
         
         this.applyImagePipeline();
@@ -526,17 +552,37 @@ export default {
 
         const imageData = ctx.getImageData(x * scaleX, y * scaleY, 1, 1);
         const [r, g, b] = imageData.data;
+        
+        console.log('Sampled pixel for manual WB:', r, g, b);
+
+        // Additive WB: calculate further scaling needed to reach 255
+        const furtherScaleR = r > 0 ? 255 / r : 1.0;
+        const furtherScaleG = g > 0 ? 255 / g : 1.0;
+        const furtherScaleB = b > 0 ? 255 / b : 1.0;
 
         this.imageFilters.wb = {
-          r: r > 0 ? 255 / r : 1.0,
-          g: g > 0 ? 255 / g : 1.0,
-          b: b > 0 ? 255 / b : 1.0
+          r: this.imageFilters.wb.r * furtherScaleR,
+          g: this.imageFilters.wb.g * furtherScaleG,
+          b: this.imageFilters.wb.b * furtherScaleB
         };
+        
+        console.log('New WB factors:', this.imageFilters.wb);
 
         this.isWhiteBalancePickerActive = false;
         this.applyImagePipeline();
       };
       imgSource.src = this.transformedImageUrl || this.imageUrl;
+    },
+
+    resetFilters() {
+      this.imageFilters = {
+        rotation: 0,
+        flippedH: false,
+        flippedV: false,
+        wb: { r: 1.0, g: 1.0, b: 1.0 }
+      };
+      this.transformedImageUrl = null;
+      this.applyImagePipeline();
     },
 
     rotateLeft() {
@@ -716,6 +762,21 @@ select {
 select:focus {
   outline: none;
   border-color: #4CAF50;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.checkbox-label input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
 }
 
 .control-group label {

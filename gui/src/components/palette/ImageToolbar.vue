@@ -2,7 +2,7 @@
   <div style="margin-bottom: 15px; display: flex; gap: 10px;">
     <button @click="$emit('rotate-left')" class="btn btn-secondary" title="Rotate 90° left">↺</button>
     <button @click="$emit('rotate-right')" class="btn btn-secondary" title="Rotate 90° right">↻</button>
-    <button @click="$emit('flip-horizontal')" class_="btn btn-secondary" title="Flip horizontal">↔</button>
+    <button @click="$emit('flip-horizontal')" class="btn btn-secondary" title="Flip horizontal">↔</button>
     <button @click="$emit('flip-vertical')" class="btn btn-secondary" title="Flip vertical">↕</button>
   </div>
 </template>
