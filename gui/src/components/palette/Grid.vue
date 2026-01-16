@@ -1,5 +1,6 @@
 <template>
-  <div class="image-container" :class="{ 'eyedropper-active': isEyedropperActive }" @click="$emit('pick-color-with-eyedropper', $event)">
+  <div class="image-container" :class="{ 'eyedropper-active': isEyedropperActive || isWhiteBalancePickerActive }" 
+       @click="handleImageClick">
     <img :src="transformedImageUrl || imageUrl"
          ref="calibrationImage"
          class="calibration-image"
@@ -37,7 +38,7 @@
 <script>
 export default {
   name: 'Grid',
-  emits: ['image-load', 'pick-color', 'update-grid-offset', 'update-grid-scale', 'auto-detect-grid', 'pick-color-with-eyedropper'],
+  emits: ['image-load', 'pick-color', 'update-grid-offset', 'update-grid-scale', 'auto-detect-grid', 'pick-color-with-eyedropper', 'pick-white-balance-pixel'],
   props: {
     imageUrl: String,
     transformedImageUrl: String,
@@ -47,6 +48,7 @@ export default {
     gridOffset: Object,
     gridScale: Number,
     isEyedropperActive: Boolean,
+    isWhiteBalancePickerActive: Boolean,
     hideGrid: Boolean
   },
   methods: {
@@ -78,6 +80,13 @@ export default {
       const parsedValue = parseFloat(value);
       if (!isNaN(parsedValue)) {
         this.$emit('update-grid-scale', parsedValue);
+      }
+    },
+    handleImageClick(event) {
+      if (this.isWhiteBalancePickerActive) {
+        this.$emit('pick-white-balance-pixel', event);
+      } else if (this.isEyedropperActive) {
+        this.$emit('pick-color-with-eyedropper', event);
       }
     }
   }
@@ -149,6 +158,10 @@ export default {
   padding: 10px;
   margin-top: 10px;
   color: #1a1a1a; /* Dark text for readability on white background */
+}
+
+.grid-adjust-row label {
+  color: #1a1a1a;
 }
 
 .grid-adjust-row {
