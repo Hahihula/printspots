@@ -202,11 +202,11 @@ Full documentation coming soon.
 
 * ✅ Interactive configuration wizard
 * ✅ Website
-* 🔜 Binary releases
-* 🔜 Automatic palette optimization in web tool
+* ✅ Binary releases
+* ✅ Automatic palette optimization in web tool
 * 🔜 Comprehensive documentation
-* 🔜 Open-source release of the full codebase
-* 🔜 GUI application
+* ✅ Open-source release of the full codebase
+* ✅ GUI application
 * 🔜 Additional calibration utilities
 * 🔜 inform user about progress of the process
 
